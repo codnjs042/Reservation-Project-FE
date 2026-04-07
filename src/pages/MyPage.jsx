@@ -9,15 +9,13 @@ const MyPage = () => {
 
   const [activeTab, setActiveTab] = useState('profile');
   const [userInfo, setUserInfo] = useState(null);
-  const [favorites, setFavorites] = useState([]); // 관심 매장 데이터
+  const [favorites, setFavorites] = useState([]);
   const [reservations, setReservations] = useState([]);
 
-  // 수정용 state (비밀번호 디자인은 초기 버전의 깔끔한 스타일로 복구)
   const [newNickname, setNewNickname] = useState('');
   const [isPwEditOpen, setIsPwEditOpen] = useState(false);
   const [passwordData, setPasswordData] = useState({ currentPw: '', newPw: '', confirmPw: '' });
 
-  // 예약 필터 (초기값 null로 설정 -> 백엔드 기본 로직 활용)
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState(null);
   const [appliedFilter, setAppliedFilter] = useState({
@@ -26,6 +24,15 @@ const MyPage = () => {
     status: []
   });
   const [tempFilter, setTempFilter] = useState({ ...appliedFilter });
+
+  const categoryMap = {
+    'KOREAN': '한식',
+    'CHINESE': '중식',
+    'JAPANESE': '일식',
+    'WESTERN': '양식',
+    'CAFE': '카페',
+    'CHICKEN': '치킨'
+  };
 
   const statusMap = {
     'CONFIRMED': { label: '확정', color: '#52c41a', bg: '#f6ffed', border: '#b7eb8f' },
@@ -48,7 +55,6 @@ const MyPage = () => {
 
   useEffect(() => { fetchUserData(); }, []);
 
-  // 탭 변경 시 데이터 로딩 (관심 매장/예약 내역)
   useEffect(() => {
     if (activeTab === 'history-fav') fetchFavorites();
     if (activeTab === 'history-res') fetchReservations();
@@ -77,14 +83,12 @@ const MyPage = () => {
     }).then(res => setReservations(res.data));
   };
 
-  // 기간 버튼 로직: 과거(m개월 전) ~ 미래(1개월 후)
   const handleQuickPeriod = (m) => {
     setSelectedPeriod(m);
     const start = new Date();
     start.setMonth(start.getMonth() - m);
     const end = new Date();
-    end.setMonth(end.getMonth() + 1); // 미래 1개월까지
-
+    end.setMonth(end.getMonth() + 1);
     setAppliedFilter(prev => ({
       ...prev,
       startDate: start.toISOString().split('T')[0],
@@ -98,24 +102,14 @@ const MyPage = () => {
   };
 
   const handlePasswordUpdate = () => {
-    if (passwordData.next !== passwordData.confirm) return alert("새 비밀번호 불일치");
-
+    if (passwordData.newPw !== passwordData.confirmPw) return alert("새 비밀번호 불일치");
     axios.patch("http://localhost:8081/users/me/password", passwordData)
-      .then((res) => {
-        // 1. 성공 알림
-        alert("비밀번호가 변경되었습니다. 보안을 위해 다시 로그인해주세요.");
-
-        // 2. 브라우저에 저장된 흔적 지우기 (LocalStorage나 SessionStorage 쓰는 경우)
-        localStorage.clear();
-        sessionStorage.clear();
-
-        // 3. ⭐ 핵심: 새로고침과 함께 메인으로 이동 (서버 세션 완전 파기 유도)
+      .then(() => {
+        alert("비밀번호가 변경되었습니다. 다시 로그인해주세요.");
+        localStorage.clear(); sessionStorage.clear();
         window.location.href = "/login";
       })
-      .catch((err) => {
-        console.error(err);
-        alert("현재 비밀번호가 일치하지 않거나 오류가 발생했습니다.");
-      });
+      .catch(() => alert("현재 비밀번호 불일치 또는 오류 발생"));
   };
 
   const handleCancelReservation = (id) => {
@@ -124,8 +118,19 @@ const MyPage = () => {
       .then(() => { alert("취소되었습니다."); fetchReservations(); });
   };
 
-  const handleUnfavorite = (id) => {
-    axios.delete(`http://localhost:8081/users/me/favorites/${id}`).then(() => fetchFavorites());
+  const handleUnfavorite = (storeId) => { // 파라미터 이름을 명확히 storeId로!
+    if (!window.confirm("관심 매장에서 해제하시겠습니까?")) return;
+
+    // ✅ StoreDetail과 똑같은 주소(http://localhost:8081/favorites/{가게ID})를 호출해야 합니다.
+    axios.patch(`http://localhost:8081/favorites/${storeId}`, {}, { withCredentials: true })
+      .then(() => {
+        alert("해제되었습니다.");
+        fetchFavorites(); // 목록 새로고침
+      })
+      .catch(err => {
+        console.error("해제 실패", err);
+        alert("해제에 실패했습니다.");
+      });
   };
 
   const handleDeleteAccount = () => {
@@ -152,7 +157,6 @@ const MyPage = () => {
 
       <main style={{ background: '#fff', borderRadius: '12px', minHeight: '400px' }}>
 
-        {/* 1. 내 정보 탭 */}
         {activeTab === 'profile' && (
           <div style={{ padding: '20px', maxWidth: '500px' }}>
             <h3 style={sectionTitle}>회원 정보</h3>
@@ -166,7 +170,6 @@ const MyPage = () => {
                 <button style={smallBlackBtn} onClick={handleNicknameUpdate}>변경</button>
               </div>
             </div>
-
             <div style={{ marginTop: '30px', borderTop: '1px solid #f5f5f5', paddingTop: '20px' }}>
               <button style={outlineBtnStyle} onClick={() => setIsPwEditOpen(!isPwEditOpen)}>비밀번호 변경 {isPwEditOpen ? '▲' : '▼'}</button>
               {isPwEditOpen && (
@@ -181,81 +184,75 @@ const MyPage = () => {
           </div>
         )}
 
-        {/* 2. 예약 관리 탭 */}
         {activeTab === 'history-res' && (
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', padding: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px' }}>
-              <div>
-                <h3 style={{ margin: '0 0 10px 0' }}>예약 내역 리스트</h3>
-                <div style={{ display: 'flex', gap: '5px' }}>
-                  {[1, 3, 6, 12].map(m => (
-                    <button key={m} onClick={() => handleQuickPeriod(m)} style={selectedPeriod === m ? activeQuickBtn : smallBtnStyle}>
-                      {m === 12 ? '1년' : `${m}개월`}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <div><h3 style={{ margin: '0 0 10px 0' }}>예약 내역 리스트</h3><div style={{ display: 'flex', gap: '5px' }}>{[1, 3, 6, 12].map(m => (<button key={m} onClick={() => handleQuickPeriod(m)} style={selectedPeriod === m ? activeQuickBtn : smallBtnStyle}>{m === 12 ? '1년' : `${m}개월`}</button>))}</div></div>
               <button ref={filterButtonRef} onClick={() => setIsFilterOpen(!isFilterOpen)} style={filterToggleBtnStyle}>상세 필터 🔍</button>
             </div>
-
             {isFilterOpen && (
               <div ref={filterPanelRef} style={filterLayerStyle}>
-                <label style={labelStyle}>날짜 범위 설정</label>
-                <div style={{ display: 'flex', gap: '5px', marginBottom: '15px' }}>
-                  <input type="date" value={tempFilter.startDate || ''} onChange={e => setTempFilter({...tempFilter, startDate: e.target.value})} style={inputStyle} />
-                  <input type="date" value={tempFilter.endDate || ''} onChange={e => setTempFilter({...tempFilter, endDate: e.target.value})} style={inputStyle} />
-                </div>
-                <label style={labelStyle}>상태 필터</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '20px' }}>
-                  {Object.entries(statusMap).map(([key, val]) => (
-                    <button key={key} onClick={() => setTempFilter(p => ({...p, status: p.status.includes(key) ? p.status.filter(s => s !== key) : [...p.status, key]}))}
-                            style={statusChipStyle(tempFilter.status.includes(key), val.color)}>{val.label}</button>
-                  ))}
-                </div>
+                <label style={labelStyle}>날짜 범위 설정</label><div style={{ display: 'flex', gap: '5px', marginBottom: '15px' }}><input type="date" value={tempFilter.startDate || ''} onChange={e => setTempFilter({...tempFilter, startDate: e.target.value})} style={inputStyle} /><input type="date" value={tempFilter.endDate || ''} onChange={e => setTempFilter({...tempFilter, endDate: e.target.value})} style={inputStyle} /></div>
+                <label style={labelStyle}>상태 필터</label><div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '20px' }}>{Object.entries(statusMap).map(([key, val]) => (<button key={key} onClick={() => setTempFilter(p => ({...p, status: p.status.includes(key) ? p.status.filter(s => s !== key) : [...p.status, key]}))} style={statusChipStyle(tempFilter.status.includes(key), val.color)}>{val.label}</button>))}</div>
                 <button onClick={() => { setAppliedFilter({...tempFilter}); setIsFilterOpen(false); }} style={applyBtnStyle}>필터 적용</button>
               </div>
             )}
-
-            <div style={tableContainer}>
-              <table style={tableStyle}>
-                <thead>
-                  <tr style={thRowStyle}>
-                    <th style={thStyle}>No.</th><th style={thStyle}>상호명</th><th style={thStyle}>일시</th><th style={thStyle}>인원</th><th style={thStyle}>상태</th><th style={thStyle}>관리</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reservations.length > 0 ? reservations.map(res => (
-                    <tr key={res.id} style={tdRowStyle}>
-                      <td style={tdStyle}>{res.id}</td>
-                      <td style={{ ...tdStyle, fontWeight: 'bold' }}>{res.storeName}</td>
-                      <td style={tdStyle}>{res.targetDateTime.replace('T', ' ')}</td>
-                      <td style={tdStyle}>{res.headCount}명</td>
-                      <td style={tdStyle}><span style={statusBadgeStyle(statusMap[res.status] || {color:'#999', bg:'#f5f5f5'})}>{statusMap[res.status]?.label || res.status}</span></td>
-                      <td style={tdStyle}>
-                        {res.status === 'CONFIRMED' && <button onClick={() => handleCancelReservation(res.id)} style={tableActionBtnStyle}>취소</button>}
-                      </td>
-                    </tr>
-                  )) : <tr><td colSpan="6" style={noDataStyle}>예약 내역이 존재하지 않습니다.</td></tr>}
-                </tbody>
-              </table>
-            </div>
+            <div style={tableContainer}><table style={tableStyle}><thead><tr style={thRowStyle}><th style={thStyle}>No.</th><th style={thStyle}>상호명</th><th style={thStyle}>일시</th><th style={thStyle}>인원</th><th style={thStyle}>상태</th><th style={thStyle}>관리</th></tr></thead><tbody>{reservations.length > 0 ? reservations.map(res => (<tr key={res.id} style={tdRowStyle}><td style={tdStyle}>{res.id}</td><td style={{ ...tdStyle, fontWeight: 'bold' }}>{res.storeName}</td><td style={tdStyle}>{res.targetDateTime.replace('T', ' ')}</td><td style={tdStyle}>{res.headCount}명</td><td style={tdStyle}><span style={statusBadgeStyle(statusMap[res.status] || {color:'#999', bg:'#f5f5f5'})}>{statusMap[res.status]?.label || res.status}</span></td><td style={tdStyle}>{res.status === 'CONFIRMED' && <button onClick={() => handleCancelReservation(res.id)} style={tableActionBtnStyle}>취소</button>}</td></tr>)) : <tr><td colSpan="6" style={noDataStyle}>예약 내역이 존재하지 않습니다.</td></tr>}</tbody></table></div>
           </div>
         )}
 
-        {/* 3. 관심 매장 탭 (서버 연동 구현) */}
+        {/* 3. 관심 매장 탭 */}
         {activeTab === 'history-fav' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px' }}>
-            {favorites.length > 0 ? favorites.map(fav => (
-              <div key={fav.id} style={favCardStyle}>
-                <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{fav.storeName}</div>
-                <div style={{ fontSize: '13px', color: '#999', marginTop: '5px' }}>{fav.address}</div>
-                <button style={favDelBtn} onClick={() => handleUnfavorite(fav.id)}>찜 해제</button>
-              </div>
-            )) : <p style={noDataStyle}>찜한 매장이 없습니다.</p>}
+          <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            {favorites.length > 0 ? favorites.map(fav => {
+              const store = fav.storeResponse || fav.store_response;
+              if (!store) return null;
+
+              return (
+                <div key={fav.id} style={favListRow}>
+                  <div
+                    style={favInfoSection}
+                    onClick={() => navigate(`/stores/${store.id}`)}
+                  >
+                    {/* 상단: 카테고리 / 이름 / 영업상태 */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                      <span style={catBadgeStyle}>
+                        {categoryMap[store.category] || store.category}
+                      </span>
+                      <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: '#1a1a1a' }}>
+                        {store.name}
+                      </h4>
+                      <span style={statusBadgeStyle(store.status === 'OPEN' ? {color:'#52c41a', bg:'#f6ffed'} : {color:'#fa8c16', bg:'#fff7e6'})}>
+                        {store.status === 'OPEN' ? '영업중' : '준비중'}
+                      </span>
+                    </div>
+
+                    {/* 하단: 주소와 관심수 (왼쪽에 정렬) */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#666', fontSize: '14px' }}>
+                      <span>{store.address}</span>
+                      <span style={{ color: '#eee' }}>|</span>
+                      <span style={{ color: '#ff4d4f', fontWeight: '600' }}>
+                        ❤️ 관심 {store.favorites}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    style={favDelBtnRow}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // StoreDetail과 동일하게 store.id를 넘겨서 토글 방식으로 해제
+                      handleUnfavorite(store.id);
+                    }}
+                  >
+                    찜 해제 💔
+                  </button>
+                </div>
+              );
+            }) : <div style={noDataStyle}>찜한 매장이 없습니다.</div>}
           </div>
         )}
 
-        {/* 4. 계정 탈퇴 탭 */}
         {activeTab === 'delete' && (
           <div style={{ textAlign: 'center', padding: '80px 20px' }}>
             <h3 style={{ color: '#ff4d4f' }}>계정 삭제 안내</h3>
@@ -268,7 +265,7 @@ const MyPage = () => {
   );
 };
 
-// --- 스타일링 (초반의 깔끔한 디자인 복구 및 고도화) ---
+// --- 스타일링 ---
 const navBtnStyle = (active) => ({ padding: '12px 20px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '15px', fontWeight: active ? 'bold' : 'normal', color: active ? '#1890ff' : '#666', borderBottom: active ? '2px solid #1890ff' : 'none' });
 const roleBadgeStyle = (role) => ({ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', background: '#f5f5f5', color: role === 'OWNER' ? '#fa8c16' : '#1890ff', border: '1px solid #ddd' });
 const infoRow = { display: 'flex', marginBottom: '15px', fontSize: '14px' };
@@ -294,9 +291,49 @@ const tdRowStyle = { borderBottom: '1px solid #f0f0f0' };
 const tdStyle = { padding: '12px' };
 const statusBadgeStyle = (s) => ({ padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', color: s.color, background: s.bg });
 const tableActionBtnStyle = { padding: '4px 8px', background: '#fff', border: '1px solid #ff4d4f', color: '#ff4d4f', borderRadius: '4px', cursor: 'pointer' };
-const favCardStyle = { padding: '20px', border: '1px solid #eee', borderRadius: '12px' };
-const favDelBtn = { marginTop: '15px', width: '100%', padding: '8px', background: '#fff', border: '1px solid #ddd', borderRadius: '6px', cursor: 'pointer' };
 const deleteBtnStyle = { padding: '15px 40px', background: '#ff4d4f', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' };
-const noDataStyle = { padding: '60px', textAlign: 'center', color: '#999', gridColumn: '1/-1' };
+const noDataStyle = { padding: '60px', textAlign: 'center', color: '#999' };
 
+const favListRow = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  padding: '20px',
+  border: '1px solid #f0f0f0',
+  borderRadius: '12px',
+  background: '#fff',
+  transition: 'all 0.2s ease',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+};
+
+const favInfoSection = {
+  flex: 1,
+  cursor: 'pointer',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'flex-start' // 모든 텍스트를 왼쪽으로 밀착
+};
+
+const favDelBtnRow = {
+  padding: '10px 16px',
+  background: '#fff',
+  border: '1px solid #ff4d4f',
+  color: '#ff4d4f',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  fontWeight: 'bold',
+  fontSize: '13px',
+  marginLeft: '20px',
+  whiteSpace: 'nowrap'
+};
+
+const catBadgeStyle = {
+  fontSize: '11px',
+  padding: '2px 8px',
+  background: '#f5f5f5',
+  borderRadius: '4px',
+  color: '#888',
+  fontWeight: '600',
+  textTransform: 'uppercase'
+};
 export default MyPage;

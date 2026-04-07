@@ -17,6 +17,7 @@ function Login() {
         navigate("/");
         window.location.reload();
       })
+
       .catch(err => {
         alert("로그인 실패: " + (err.response?.data || "이메일 또는 비밀번호를 확인하세요."));
       });

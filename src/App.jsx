@@ -11,6 +11,10 @@ import ScheduleRegistration from './pages/ScheduleRegistration'
 import StoreTableRegistration from './pages/StoreTableRegistration'
 import StoreDetail from './pages/StoreDetail';
 import Reservation from './pages/Reservation';
+import StoreList from './pages/StoreList';
+import UserAdmin from './pages/UserAdmin';
+import StoreAdmin from './pages/StoreAdmin';
+import ReservationAdmin from './pages/ReservationAdmin';
 
 function App() {
   return (
@@ -23,12 +27,18 @@ function App() {
             <Route path="/my-page" element={<MyPage />} />
             <Route path="/stores/:id" element={<StoreDetail />} />
             <Route path="/stores/:id/reserve" element={<Reservation />} />
+            <Route path="/stores" element={<StoreList />} />
             <Route path="/business">
                 <Route index element={<Business />} />
                 <Route path="my-store" element={<MyStore />} />
                 <Route path="new-store" element={<StoreRegistration />} />
                 <Route path="new-store/schedules" element={<ScheduleRegistration />} />
                 <Route path="new-store/tables" element={<StoreTableRegistration />} />
+            </Route>
+            <Route path="/admin">
+                <Route index element={<UserAdmin />} />
+                <Route path="/admin/stores" element={<StoreAdmin />} />
+                <Route path="/admin/reservations" element={<ReservationAdmin />} />
             </Route>
         </Routes>
       </BrowserRouter>
