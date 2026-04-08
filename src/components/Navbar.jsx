@@ -9,7 +9,6 @@ function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userRole, setUserRole] = useState(null);
 
-  // 현재 URL이 어디인지 판단
   const isBusinessPath = location.pathname.startsWith('/business');
   const isAdminPath = location.pathname.startsWith('/admin');
 
@@ -25,13 +24,11 @@ function Navbar() {
       } catch (e) { setUserRole(null); }
     }
 
-    // ⭐ 핵심: 관리자 페이지가 아닐 때만 마지막 모드(비즈니스/사용자)를 저장함
     if (!isAdminPath) {
       localStorage.setItem("lastMode", isBusinessPath ? "business" : "user");
     }
   }, [location, isAdminPath, isBusinessPath]);
 
-  // 버튼에 표시할 모드 결정 (마지막 모드 기억)
   const lastMode = localStorage.getItem("lastMode") || "user";
   const isCurrentlyBusiness = isAdminPath ? (lastMode === "business") : isBusinessPath;
 
@@ -46,74 +43,90 @@ function Navbar() {
       });
   };
 
+  // ⭐ 버튼 스타일 수정: fontSize를 16px로 키우고 fontWeight를 살짝 올림
+  const navBtnStyle = {
+    background: 'none',
+    color: 'white',
+    border: 'none',
+    padding: '8px 12px',
+    cursor: 'pointer',
+    fontWeight: '600', // 가독성을 위해 세미볼드 정도로 변경
+    fontSize: '16px',   // 14px -> 16px로 확대
+    textDecoration: 'none',
+    display: 'inline-flex',
+    alignItems: 'center',
+    letterSpacing: '-0.5px' // 글자가 커진 만큼 자간을 살짝 조여서 세련되게
+  };
+
   return (
-    <nav style={{ padding: '15px', background: '#222', display: 'flex', gap: '20px', alignItems: 'center' }}>
+    <nav style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
 
-      {/* HOME 버튼: 관리자면 관리자홈, 아니면 현재 모드 유지 */}
-      <Link
-        to={isAdminPath ? "/admin" : (isCurrentlyBusiness ? "/business" : "/")}
-        style={{ color: 'white', textDecoration: 'none', fontWeight: 'bold' }}
-      >
-        HOME
-      </Link>
+      {/* 1층: 로고 섹션 */}
+      <div style={{
+        background: 'white',
+        padding: '15px 0',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center'
+      }}>
+        <Link to={isAdminPath ? "/admin" : (isCurrentlyBusiness ? "/business" : "/")}>
+          <img
+            src="/images/logo.png"
+            alt="Logo"
+            style={{
+              height: '50px',
+              display: 'block'
+            }}
+            onError={(e) => { e.target.style.display = 'none'; }}
+          />
+        </Link>
+      </div>
 
-      <div style={{ marginLeft: 'auto', display: 'flex', gap: '15px', alignItems: 'center' }}>
+      {/* 2층: 메뉴 바 (주황색 배경) */}
+      <div style={{
+        background: '#F0602A',
+        padding: '5px 20px', // 글씨가 커진 만큼 바 높이 자연스럽게 조절
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+
         {isLoggedIn ? (
           <>
-            {/* 1. 관리자 광장 (보라색) */}
-            {userRole === 'ADMIN' && (
-              <Link
-                to="/admin"
-                style={{
-                  color: '#d1c4e9',
-                  textDecoration: 'none',
-                  fontSize: '14px',
-                  border: '1px solid #b39ddb',
-                  padding: '4px 8px',
-                  borderRadius: '4px',
-                  backgroundColor: 'transparent',
-                  fontWeight: 'bold'
-                }}
-              >
-                관리자 광장
+            {/* 왼쪽 그룹 */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              {userRole === 'ADMIN' && (
+                <Link to="/admin" style={navBtnStyle}>
+                  관리자 광장
+                </Link>
+              )}
+              <Link to={isCurrentlyBusiness ? "/" : "/business"} style={navBtnStyle}>
+                {isCurrentlyBusiness ? "사용자 광장" : "비즈니스 광장"}
               </Link>
-            )}
+            </div>
 
-            {/* 2. 전환 버튼: 보라색 버튼을 눌러도 이 버튼의 텍스트/색상은 유지됨 */}
-            <Link
-              to={isCurrentlyBusiness ? "/" : "/business"}
-              style={{
-                color: isCurrentlyBusiness ? '#00e5ff' : '#ffeb3b',
-                textDecoration: 'none',
-                fontSize: '14px',
-                border: isCurrentlyBusiness ? '1px solid #00e5ff' : '1px solid #ffeb3b',
-                padding: '4px 8px',
-                borderRadius: '4px'
-              }}
-            >
-              {isCurrentlyBusiness ? "사용자 광장" : "비즈니스 광장"}
-            </Link>
+            {/* 오른쪽 그룹 */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => {
+                  if (lastMode === "business") navigate("/business/my-store");
+                  else navigate("/my-page");
+                }}
+                style={navBtnStyle}
+              >
+                {lastMode === "business" ? "내 가게 관리" : "마이페이지"}
+              </button>
 
-            {/* 3. 내 가게 관리 / 마이페이지 버튼 */}
-            <button
-              onClick={() => {
-                if (isAdminPath) navigate("/admin");
-                else navigate(isCurrentlyBusiness ? "/business/my-store" : "/my-page");
-              }}
-              style={{ background: '#f0f0f0', color: 'black', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}
-            >
-              {isAdminPath ? "관리자 홈" : (isCurrentlyBusiness ? "내 가게 관리" : "마이페이지")}
-            </button>
-
-            <button onClick={handleLogout} style={{ background: '#f0f0f0', color: 'black', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>
-              로그아웃
-            </button>
+              <button onClick={handleLogout} style={navBtnStyle}>
+                로그아웃
+              </button>
+            </div>
           </>
         ) : (
-          <>
-            <Link to="/login" style={{ color: 'white', textDecoration: 'none' }}>로그인</Link>
-            <Link to="/signup" style={{ color: 'white', textDecoration: 'none' }}>회원가입</Link>
-          </>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>
+            <Link to="/login" style={navBtnStyle}>로그인</Link>
+            <Link to="/signup" style={navBtnStyle}>회원가입</Link>
+          </div>
         )}
       </div>
     </nav>
