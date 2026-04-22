@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../api/api'; // ✅ 인터셉터가 적용된 api 인스턴스 임포트
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const StoreTableRegistration = () => {
@@ -48,6 +48,7 @@ const StoreTableRegistration = () => {
     if (!storeId) return alert("매장 정보가 없습니다.");
 
     try {
+      // ✅ axios.post 대신 api.post 사용
       const promises = tableConfigs.map(config => {
         const requestData = {
           tableName: config.tableName || "기본 테이블",
@@ -55,7 +56,7 @@ const StoreTableRegistration = () => {
           maxCapacity: parseInt(config.maxCapacity, 10) || 2,
           count: parseInt(config.count, 10) || 1
         };
-        return axios.post(`http://localhost:8081/stores/${storeId}/tables/register`, requestData);
+        return api.post(`http://localhost:8081/stores/${storeId}/tables/register`, requestData);
       });
 
       await Promise.all(promises);
@@ -63,7 +64,8 @@ const StoreTableRegistration = () => {
       navigate("/business");
 
     } catch (err) {
-      alert("등록 중 오류가 발생했습니다.");
+      // 상세 에러 알럿은 인터셉터(api.js)에서 처리하므로 흐름만 제어
+      console.error("등록 중 오류 발생", err);
     }
   };
 
@@ -133,7 +135,6 @@ const StoreTableRegistration = () => {
         </div>
       </div>
 
-      {/* 💡 하단 버튼 영역: '이전 단계'를 완전히 제거하고 '나중에 하기'와 '등록 완료'만 배치 */}
       <div style={{ marginTop: '40px', display: 'flex', gap: '15px' }}>
         <button
           onClick={() => navigate("/business")}
@@ -150,7 +151,7 @@ const StoreTableRegistration = () => {
   );
 };
 
-// --- Styles (동일) ---
+// --- 스타일 (동일하게 유지) ---
 const containerStyle = { maxWidth: '600px', margin: '40px auto', padding: '20px', fontFamily: 'sans-serif' };
 const stepIndicator = { color: '#1890ff', fontWeight: 'bold', textAlign: 'center', fontSize: '0.9rem' };
 const configCardStyle = { background: '#fff', padding: '25px', borderRadius: '15px', marginBottom: '20px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: '1px solid #f0f0f0' };

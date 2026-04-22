@@ -1,18 +1,27 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import axios from 'axios';
+import api from '../api/api'; // ✅ 인터셉터가 적용된 api 인스턴스 임포트
+import { useNavigate } from 'react-router-dom';
+import DaumPostcode from 'react-daum-postcode';
 
 const MyStore = () => {
+  const navigate = useNavigate(); // 세션 만료 시 대응을 위해 추가
   const [stores, setStores] = useState([]);
   const [selectedStore, setSelectedStore] = useState(null);
   const [activeTab, setActiveTab] = useState('reservations');
   const [loading, setLoading] = useState(true);
+  const [isPostcodeOpen, setIsPostcodeOpen] = useState(false);
 
   // --- [공통 데이터 상태] ---
   const [reservations, setReservations] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [groupedTables, setGroupedTables] = useState([]);
-  const [storeDetail, setStoreDetail] = useState({ name: '', phone: '', address: '', status: 'READY' });
-
+  const [storeDetail, setStoreDetail] = useState({
+      name: '',
+      phone: '',
+      address: '',
+      zipcode: '', // 👈 우편번호 필드 추가
+      status: 'READY'
+    });
   // --- [탭 1: 예약 전용 상세 필터 상태] ---
   const filterPanelRef = useRef(null);
   const filterButtonRef = useRef(null);
@@ -52,7 +61,33 @@ const MyStore = () => {
     }), {})
   );
 
-  const apiBase = "http://localhost:8081";
+  const categoryOptions = [
+    { key: 'KOREAN', label: '한식' },
+    { key: 'JAPANESE', label: '일식' },
+    { key: 'CHINESE', label: '중식' },
+    { key: 'WESTERN', label: '양식' },
+    { key: 'ASIAN', label: '아시안' }
+  ];
+
+  // 2. 주소 선택 핸들러 수정
+  const handleComplete = (data) => {
+    let fullAddress = data.address;
+    let extraAddress = '';
+
+    if (data.addressType === 'R') {
+      if (data.bname !== '') extraAddress += data.bname;
+      if (data.buildingName !== '') extraAddress += (extraAddress !== '' ? `, ${data.buildingName}` : data.buildingName);
+      fullAddress += (extraAddress !== '' ? ` (${extraAddress})` : '');
+    }
+
+    // ✅ 주소와 우편번호(zonecode)를 함께 업데이트
+    setStoreDetail({
+      ...storeDetail,
+      address: fullAddress,
+      zipcode: data.zonecode // 👈 우편번호 저장
+    });
+    setIsPostcodeOpen(false);
+  };
 
   // --- [이벤트 핸들러] ---
   useEffect(() => {
@@ -66,12 +101,14 @@ const MyStore = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // ✅ 초기 매장 목록 로드 (api 인스턴스 사용)
   useEffect(() => {
-    axios.get(`${apiBase}/owners/stores`, { withCredentials: true })
+    api.get(`/owners/stores`)
       .then(res => {
         setStores(res.data);
         if (res.data && res.data.length > 0) setSelectedStore(res.data[0]);
       })
+      .catch(err => console.error("매장 목록 로드 실패", err))
       .finally(() => setLoading(false));
   }, []);
 
@@ -80,20 +117,19 @@ const MyStore = () => {
     const storeId = selectedStore.id;
 
     if (activeTab === 'reservations') {
-      axios.get(`${apiBase}/owners/stores/${storeId}/reservations`, {
+      api.get(`/owners/stores/${storeId}/reservations`, {
           params: {
             type: appliedFilter.type,
             keyword: appliedFilter.keyword || null,
             startDate: appliedFilter.startDate || null,
             endDate: appliedFilter.endDate || null,
             status: appliedFilter.status.length > 0 ? appliedFilter.status.join(',') : null
-          },
-          withCredentials: true
+          }
         })
         .then(res => setReservations(res.data || []))
         .catch(err => console.error("예약 로드 실패:", err));
     } else if (activeTab === 'tables') {
-      axios.get(`${apiBase}/stores/${storeId}/tables`)
+      api.get(`/stores/${storeId}/tables`)
         .then(res => {
           const groups = [];
           res.data.forEach(item => {
@@ -104,7 +140,7 @@ const MyStore = () => {
           setGroupedTables(groups);
         });
     } else if (activeTab === 'info') {
-      axios.get(`${apiBase}/owners/stores/${storeId}`, { withCredentials: true })
+      api.get(`/owners/stores/${storeId}`)
         .then(res => setStoreDetail(res.data));
     }
   }, [selectedStore, activeTab, appliedFilter]);
@@ -115,9 +151,8 @@ const MyStore = () => {
   const handleUpdateStoreStatus = (newStatus) => {
     if (newStatus === 'SHUTDOWN') {
       if (!window.confirm("정말로 이 가게를 폐업 처리하시겠습니까? 데이터가 삭제됩니다.")) return;
-      axios.delete(`${apiBase}/owners/stores`, {
-        data: { ids: [selectedStore.id] },
-        withCredentials: true
+      api.delete(`/owners/stores`, {
+        data: { ids: [selectedStore.id] }
       })
       .then(() => {
         alert("폐업 처리가 완료되었습니다.");
@@ -127,7 +162,7 @@ const MyStore = () => {
       return;
     }
 
-    axios.patch(`${apiBase}/owners/stores/${selectedStore.id}/status`, { status: newStatus }, { withCredentials: true })
+    api.patch(`/owners/stores/${selectedStore.id}/status`, { status: newStatus })
       .then(() => {
         setStoreDetail({ ...storeDetail, status: newStatus });
         alert(`상태가 [${newStatus}]로 변경되었습니다.`);
@@ -135,14 +170,32 @@ const MyStore = () => {
   };
 
   const handleUpdateStoreInfo = () => {
-    axios.patch(`${apiBase}/owners/stores/${selectedStore.id}`, storeDetail, { withCredentials: true })
-      .then(() => alert("정보가 수정되었습니다."));
+    const updateData = {
+      name: storeDetail.name,
+      category: storeDetail.category,
+      address: storeDetail.address,
+      zipcode: storeDetail.zipcode, // 👈 우편번호 포함
+      phone: storeDetail.phone
+    };
+
+    // 유효성 체크 (선택 사항이지만 추천)
+    if (!updateData.zipcode) {
+      alert("우편번호가 없습니다. 주소 찾기를 다시 진행해주세요.");
+      return;
+    }
+
+    api.patch(`/owners/stores/${selectedStore.id}`, updateData)
+      .then(() => alert("정보가 수정되었습니다."))
+      .catch(err => {
+        console.error("수정 실패:", err);
+        alert("정보 수정에 실패했습니다. 입력값을 확인해주세요.");
+      });
   };
 
   // --- [예약/테이블 핸들러] ---
   const handleStatusChange = (status) => {
     if (selectedIds.length === 0) return alert("대상을 선택해주세요.");
-    axios.patch(`${apiBase}/owners/stores/${selectedStore.id}/reservations`, { ids: selectedIds, status }, { withCredentials: true })
+    api.patch(`/owners/stores/${selectedStore.id}/reservations`, { ids: selectedIds, status })
       .then(() => { alert(`상태 변경 완료`); fetchData(); setSelectedIds([]); })
       .catch(() => alert("변경 실패"));
   };
@@ -165,7 +218,7 @@ const MyStore = () => {
       maxCapacity: Number(groupData.maxCapacity),
       count: parseInt(groupData.count)
     };
-    axios.put(`${apiBase}/stores/${selectedStore.id}/tables`, dto, { withCredentials: true })
+    api.put(`/stores/${selectedStore.id}/tables`, dto)
       .then(() => { alert("반영완료"); fetchData(); });
   };
 
@@ -184,9 +237,10 @@ const MyStore = () => {
   const saveSingleDaySchedule = (dayKey) => {
     const config = dayConfigs[dayKey];
     const upsertSchedules = config.isClosed ? [] : convertToUpsertRequest(config);
-    axios.put(`${apiBase}/stores/${selectedStore.id}/schedules/${dayKey}`, { upsertSchedules }, { withCredentials: true })
+    api.put(`/stores/${selectedStore.id}/schedules/${dayKey}`, { upsertSchedules })
       .then(() => alert(`${dayKey} 설정 저장 완료`));
   };
+
   const convertToUpsertRequest = (config) => {
     const { openTime, closeTime, interval, breaks } = config;
     const sortedBreaks = [...breaks].filter(b => b.startTime && b.endTime).sort((a, b) => a.startTime.localeCompare(b.startTime));
@@ -291,7 +345,6 @@ const MyStore = () => {
               </button>
             </div>
 
-            {/* 헤더: 아래 입력창 width와 1:1로 매칭 */}
             <div style={{
               display: 'flex',
               gap: '10px',
@@ -316,39 +369,30 @@ const MyStore = () => {
                   alignItems: 'center',
                   padding: '4px 0'
                 }}>
-                  {/* 명칭: 160px */}
                   <input
                     style={{ ...compactInput, width: '160px', fontSize: '0.85rem' }}
                     placeholder="예: 창가 2인석"
                     value={g.tableName || ''}
                     onChange={e => handleTableUpdate(idx, 'tableName', e.target.value)}
                   />
-
-                  {/* 최소: 50px */}
                   <input
                     type="number"
                     style={{ ...compactInput, width: '50px', textAlign: 'center' }}
                     value={g.minCapacity}
                     onChange={e => handleTableUpdate(idx, 'minCapacity', e.target.value)}
                   />
-
-                  {/* 최대: 50px */}
                   <input
                     type="number"
                     style={{ ...compactInput, width: '50px', textAlign: 'center' }}
                     value={g.maxCapacity}
                     onChange={e => handleTableUpdate(idx, 'maxCapacity', e.target.value)}
                   />
-
-                  {/* 수량: 50px */}
                   <input
                     type="number"
                     style={{ ...compactInput, width: '50px', textAlign: 'center', fontWeight: 'bold', color: '#1890ff' }}
                     value={g.count}
                     onChange={e => handleTableUpdate(idx, 'count', e.target.value)}
                   />
-
-                  {/* 관리 영역: 저장 버튼을 강조하고 삭제는 휴지통 아이콘이나 작은 텍스트로 분리 */}
                   <div style={{ width: '80px', display: 'flex', gap: '6px', alignItems: 'center' }}>
                       <button
                         onClick={() => saveTableChanges(g)}
@@ -358,16 +402,7 @@ const MyStore = () => {
                       </button>
                       <button
                         onClick={() => { if(window.confirm('삭제하시겠습니까?')) { const u = [...groupedTables]; u[idx].count = 0; saveTableChanges(u[idx]); }}}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#ff4d4f',
-                          cursor: 'pointer',
-                          fontSize: '1rem',
-                          padding: '0 5px',
-                          display: 'flex',
-                          alignItems: 'center'
-                        }}
+                        style={{ background: 'none', border: 'none', color: '#ff4d4f', cursor: 'pointer', fontSize: '1rem', padding: '0 5px', display: 'flex', alignItems: 'center' }}
                         title="삭제"
                       >
                         🗑️
@@ -435,31 +470,16 @@ const MyStore = () => {
         )}
 
         {/* [탭 4] 정보 */}
-        {/* [탭 4] 정보 - 수정된 부분 */}
         {activeTab === 'info' && (
           <div style={{ display: 'grid', gap: '30px', width: '100%' }}>
             <section style={{ width: '100%' }}>
                 <h4 style={{ margin: '0 0 15px', textAlign: 'left' }}>🏷️ 매장 운영 상태</h4>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  gap: '8px', // 간격을 살짝 좁힘
-                  width: '100%'
-                }}>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', width: '100%' }}>
                     {storeStatuses.map(s => (
                         <button key={s.key} onClick={() => handleUpdateStoreStatus(s.key)}
                             style={{
                               ...actionBtn(storeDetail.status === s.key ? s.color : '#eee', storeDetail.status === s.key ? '#fff' : '#666'),
-                              flex: 1,
-                              maxWidth: '160px', // 너비 제한을 살짝 늘림
-                              height: '45px',
-                              fontWeight: 'bold',
-                              fontSize: '0.8rem', // 글자 크기를 살짝 조절
-                              whiteSpace: 'nowrap', // ★ 글자 줄바꿈 방지
-                              padding: '0 5px', // 내부 좌우 여백 최소화
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
+                              flex: 1, maxWidth: '160px', height: '45px', fontWeight: 'bold', fontSize: '0.8rem', whiteSpace: 'nowrap', padding: '0 5px', display: 'flex', alignItems: 'center', justifyContent: 'center'
                             }}>
                             {s.label}
                         </button>
@@ -474,12 +494,60 @@ const MyStore = () => {
                   <input style={{...compactInput, width: '100%', boxSizing: 'border-box'}} value={storeDetail.name || ''} onChange={e => setStoreDetail({...storeDetail, name: e.target.value})} />
                 </div>
                 <div>
+                    <label style={labelStyle}>매장 카테고리</label>
+                    <select
+                      style={{...compactInput, width: '100%', boxSizing: 'border-box', background: '#fff'}}
+                      value={storeDetail.category || 'KOREAN'}
+                      onChange={e => setStoreDetail({...storeDetail, category: e.target.value})}
+                    >
+                        {categoryOptions.map(option => (<option key={option.key} value={option.key}>{option.label}</option>))}
+                    </select>
+                </div>
+                <div>
                   <label style={labelStyle}>대표 연락처</label>
                   <input style={{...compactInput, width: '100%', boxSizing: 'border-box'}} value={storeDetail.phone || ''} onChange={e => setStoreDetail({...storeDetail, phone: e.target.value})} />
                 </div>
                 <div>
                   <label style={labelStyle}>매장 위치 주소</label>
-                  <input style={{...compactInput, width: '100%', boxSizing: 'border-box'}} value={storeDetail.address || ''} onChange={e => setStoreDetail({...storeDetail, address: e.target.value})} />
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                    {/* 우편번호 입력창 추가 (읽기 전용) */}
+                    <input
+                      style={{ ...compactInput, width: '100px', background: '#f5f5f5' }}
+                      value={storeDetail.zipcode || ''}
+                      readOnly
+                      placeholder="우편번호"
+                    />
+                    <input
+                      style={{ ...compactInput, flex: 1 }}
+                      value={storeDetail.address || ''}
+                      readOnly
+                      placeholder="주소 찾기 버튼을 눌러주세요"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setIsPostcodeOpen(!isPostcodeOpen)}
+                      style={{ ...subBtnStyle, whiteSpace: 'nowrap' }}
+                    >
+                      주소 찾기
+                    </button>
+                  </div>
+                  {/* 주소 검색창 레이어 (클릭 시 노출) */}
+                  {isPostcodeOpen && (
+                    <div style={{
+                      border: '1px solid #ddd',
+                      marginTop: '10px',
+                      position: 'relative',
+                      zIndex: 100
+                    }}>
+                      <DaumPostcode onComplete={handleComplete} />
+                      <button
+                        onClick={() => setIsPostcodeOpen(false)}
+                        style={{ width: '100%', padding: '10px', background: '#f5f5f5', border: 'none', cursor: 'pointer' }}
+                      >
+                        닫기
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <button onClick={handleUpdateStoreInfo} style={{...saveBtnStyle, padding: '15px', width: '100%', marginTop: '10px'}}>기본 정보 업데이트</button>
             </section>
@@ -490,7 +558,7 @@ const MyStore = () => {
   );
 };
 
-// --- 스타일링 ---
+// --- 스타일링 (변경 없음) ---
 const containerStyle = { maxWidth: '850px', margin: '30px auto', padding: '0 20px', fontFamily: "'Pretendard', sans-serif" };
 const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' };
 const selectStyle = { padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', outline: 'none' };
@@ -504,7 +572,6 @@ const labelStyle = { display: 'block', fontSize: '0.85rem', color: '#666', margi
 const addBtnStyle = { padding: '8px 16px', background: '#e6f7ff', color: '#1890ff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
 const saveBtnStyle = { background: '#1890ff', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
 const subBtnStyle = { padding: '5px 12px', background: '#1890ff', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' };
-const delIconBtn = { padding: '7px 10px', background: '#fff', color: '#ff4d4f', border: '1px solid #ff4d4f', borderRadius: '6px', cursor: 'pointer' };
 const actionBtn = (bgColor, textColor = '#fff') => ({ padding: '8px 16px', background: bgColor, color: textColor, border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' });
 const filterToggleBtnStyle = { padding: '8px 16px', background: '#fff', border: '1px solid #d9d9d9', borderRadius: '6px', cursor: 'pointer' };
 const filterLayerStyle = { position: 'absolute', top: '70px', left: '0', zIndex: 100, width: '280px', background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.15)', border: '1px solid #eee' };

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../api/api'; // axios 대신 인터셉터가 적용된 api 사용
 import { useNavigate } from 'react-router-dom';
+
+const mainColor = "#F0602A";
 
 function Login() {
   const navigate = useNavigate();
@@ -9,18 +11,16 @@ function Login() {
   const handleLogin = (e) => {
     e.preventDefault();
 
-    axios.post("http://localhost:8081/users/login", loginData)
+    // 인터셉터가 적용된 api.post 사용
+    api.post("/users/login", loginData)
       .then(res => {
         alert("로그인 성공! 환영합니다. 🎉");
         localStorage.setItem("user", JSON.stringify(res.data));
         localStorage.setItem("isLoggedIn", "true");
         navigate("/");
         window.location.reload();
-      })
-
-      .catch(err => {
-        alert("로그인 실패: " + (err.response?.data || "이메일 또는 비밀번호를 확인하세요."));
       });
+      // .catch는 api.js 인터셉터가 공통 에러 메시지(400, 401 등)를 alert로 띄워줌!
   };
 
   return (
@@ -35,7 +35,7 @@ function Login() {
             <label style={labelStyle}>이메일</label>
             <input
               name="email"
-              placeholder="이메일을 입력해주세요"
+              placeholder="example@mail.com"
               value={loginData.email}
               onChange={(e) => setLoginData({...loginData, email: e.target.value})}
               style={inputStyle}
@@ -70,44 +70,44 @@ function Login() {
   );
 }
 
-// --- ✨ Styles (회원가입 페이지와 통일된 테마) ---
+// --- 🎨 Styles (Signup 페이지와 통일된 mainColor 테마) ---
 
 const pageContainer = {
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
   minHeight: '100vh',
-  backgroundColor: '#f8f9fa', // 연한 회색 배경
+  backgroundColor: '#f9f9f9',
   padding: '20px'
 };
 
 const loginCard = {
   width: '100%',
-  maxWidth: '400px',
+  maxWidth: '420px',
   backgroundColor: '#fff',
   padding: '40px',
-  borderRadius: '16px',
-  boxShadow: '0 10px 25px rgba(0,0,0,0.05)',
+  borderRadius: '20px',
+  boxShadow: '0 15px 35px rgba(0,0,0,0.08)',
   textAlign: 'center'
 };
 
 const titleStyle = {
   margin: '0 0 10px 0',
-  fontSize: '1.8rem',
-  color: '#1a1a1a',
-  fontWeight: 'bold'
+  fontSize: '2rem',
+  color: mainColor,
+  fontWeight: '800'
 };
 
 const subTitleStyle = {
   margin: '0 0 30px 0',
-  fontSize: '0.9rem',
-  color: '#666'
+  fontSize: '0.95rem',
+  color: '#777'
 };
 
 const formStyle = {
   display: 'flex',
   flexDirection: 'column',
-  gap: '20px'
+  gap: '22px'
 };
 
 const inputGroup = {
@@ -117,47 +117,50 @@ const inputGroup = {
 const labelStyle = {
   display: 'block',
   fontSize: '0.85rem',
-  color: '#444',
-  fontWeight: '600',
-  marginBottom: '8px'
+  color: '#333',
+  fontWeight: '700',
+  marginBottom: '8px',
+  paddingLeft: '4px'
 };
 
 const inputStyle = {
   width: '100%',
-  padding: '12px 16px',
-  borderRadius: '8px',
-  border: '1px solid #ddd',
+  padding: '14px 18px',
+  borderRadius: '10px',
+  border: '1.5px solid #eee',
   fontSize: '1rem',
   boxSizing: 'border-box',
   outline: 'none',
-  transition: 'border-color 0.2s',
+  transition: 'all 0.3s ease',
 };
 
 const submitBtnStyle = {
   width: '100%',
-  padding: '14px',
-  backgroundColor: '#1890ff', // 회원가입과 동일한 포인트 컬러
+  padding: '16px',
+  backgroundColor: mainColor,
   color: '#fff',
   border: 'none',
-  borderRadius: '8px',
-  fontSize: '1rem',
+  borderRadius: '12px',
+  fontSize: '1.1rem',
   fontWeight: 'bold',
   cursor: 'pointer',
-  marginTop: '10px',
-  transition: '0.3s'
+  marginTop: '15px',
+  boxShadow: `0 4px 14px rgba(240, 96, 42, 0.3)`,
+  transition: 'all 0.2s'
 };
 
 const footerStyle = {
-  marginTop: '25px',
+  marginTop: '30px',
   fontSize: '0.9rem',
-  color: '#888'
+  color: '#999'
 };
 
 const linkStyle = {
-  color: '#1890ff',
+  color: mainColor,
   cursor: 'pointer',
-  fontWeight: 'bold',
-  textDecoration: 'underline'
+  fontWeight: '700',
+  marginLeft: '8px',
+  textDecoration: 'none'
 };
 
 export default Login;

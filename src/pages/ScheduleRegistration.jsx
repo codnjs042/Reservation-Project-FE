@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../api/api'; // ✅ 인터셉터가 적용된 api 인스턴스 임포트
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const ScheduleRegistration = () => {
@@ -15,7 +15,6 @@ const ScheduleRegistration = () => {
     { key: 'SUNDAY', label: '일' }
   ];
 
-  // ✅ isClosed 속성 추가
   const [dayConfigs, setDayConfigs] = useState(
     days.reduce((acc, day) => ({
       ...acc,
@@ -24,7 +23,7 @@ const ScheduleRegistration = () => {
         closeTime: '21:00',
         interval: 60,
         breaks: [],
-        isClosed: false // 기본값: 영업 중
+        isClosed: false
       }
     }), {})
   );
@@ -45,16 +44,15 @@ const ScheduleRegistration = () => {
     setDayConfigs({ ...dayConfigs, [day]: updated });
   };
 
-  // ✅ [수정] 저장 로직: 휴무일은 제외하고 요청 보냄
   const handleNextStep = async () => {
     if (!storeId) return alert("매장 정보가 없습니다.");
     try {
-      // isClosed가 false인 요일만 골라서 요청 생성
       const promises = Object.entries(dayConfigs)
         .filter(([_, config]) => !config.isClosed)
         .map(([day, config]) => {
           const upsertSchedules = convertToUpsertRequest(config);
-          return axios.put(`http://localhost:8081/stores/${storeId}/schedules/${day}`, {
+          // ✅ axios.put 대신 api.put 사용
+          return api.put(`http://localhost:8081/stores/${storeId}/schedules/${day}`, {
             upsertSchedules: upsertSchedules
           });
         });
@@ -66,7 +64,8 @@ const ScheduleRegistration = () => {
       alert("영업시간 설정 완료!");
       handleGoToNext();
     } catch (err) {
-      alert("저장 실패. 시간을 다시 확인해주세요.");
+      // 상세 에러는 인터셉터에서 alert를 띄워주므로 여기서는 콘솔 출력만 남깁니다.
+      console.error("저장 실패", err);
     }
   };
 
@@ -109,7 +108,6 @@ const ScheduleRegistration = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
               <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{day.label}요일</div>
 
-              {/* ✅ 휴무 체크박스 */}
               <label style={{ fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <input
                   type="checkbox"
@@ -120,7 +118,6 @@ const ScheduleRegistration = () => {
               </label>
             </div>
 
-            {/* ✅ 휴무가 아닐 때만 입력 영역 표시 */}
             {!isClosed ? (
               <>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
@@ -158,7 +155,7 @@ const ScheduleRegistration = () => {
   );
 };
 
-// ... 스타일 시트는 동일하게 유지 ...
+// --- 스타일 시트 ---
 const containerStyle = { maxWidth: '600px', margin: '40px auto', padding: '20px', fontFamily: 'sans-serif' };
 const dayCardStyle = { background: '#fff', padding: '20px', borderRadius: '15px', marginBottom: '15px', border: '1px solid #f0f0f0', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', transition: '0.3s' };
 const timeInputStyle = { padding: '5px', borderRadius: '4px', border: '1px solid #ddd' };

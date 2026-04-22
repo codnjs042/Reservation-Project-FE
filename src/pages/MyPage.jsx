@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import api from '../api/api'; // 인터셉터가 적용된 api 인스턴스 임포트
 import { useNavigate } from 'react-router-dom';
 
 const MyPage = () => {
@@ -61,20 +61,22 @@ const MyPage = () => {
   }, [activeTab, appliedFilter]);
 
   const fetchUserData = () => {
-    axios.get("http://localhost:8081/users/me").then(res => {
-      setUserInfo(res.data);
-      setNewNickname(res.data.nickname);
-    }).catch(() => navigate("/login"));
+    api.get("http://localhost:8081/users/me")
+      .then(res => {
+        setUserInfo(res.data);
+        setNewNickname(res.data.nickname);
+      })
+      .catch(() => navigate("/login"));
   };
 
   const fetchFavorites = () => {
-    axios.get("http://localhost:8081/users/me/favorites")
+    api.get("http://localhost:8081/users/me/favorites")
       .then(res => setFavorites(res.data))
       .catch(err => console.error("관심 매장 로딩 실패", err));
   };
 
   const fetchReservations = () => {
-    axios.get("http://localhost:8081/users/me/reservations", {
+    api.get("http://localhost:8081/users/me/reservations", {
       params: {
         startDate: appliedFilter.startDate,
         endDate: appliedFilter.endDate,
@@ -97,13 +99,21 @@ const MyPage = () => {
   };
 
   const handleNicknameUpdate = () => {
-    axios.patch(`http://localhost:8081/users/me/nickname?nickname=${newNickname}`)
-      .then(() => { alert("닉네임 변경 완료"); fetchUserData(); });
+    api.patch(`http://localhost:8081/users/me/nickname`, { nickname: newNickname })
+      .then(() => {
+        alert("닉네임 변경 완료");
+        fetchUserData();
+      })
+      .catch(err => {
+        if (err.response && err.response.data) {
+          alert(err.response.data.message || "닉네임 형식이 올바르지 않습니다.");
+        }
+      });
   };
 
   const handlePasswordUpdate = () => {
     if (passwordData.newPw !== passwordData.confirmPw) return alert("새 비밀번호 불일치");
-    axios.patch("http://localhost:8081/users/me/password", passwordData)
+    api.patch("http://localhost:8081/users/me/password", passwordData)
       .then(() => {
         alert("비밀번호가 변경되었습니다. 다시 로그인해주세요.");
         localStorage.clear(); sessionStorage.clear();
@@ -114,18 +124,16 @@ const MyPage = () => {
 
   const handleCancelReservation = (id) => {
     if (!window.confirm("예약을 취소하시겠습니까?")) return;
-    axios.patch(`http://localhost:8081/users/me/reservations/${id}/cancel`)
+    api.patch(`http://localhost:8081/users/me/reservations/${id}/cancel`)
       .then(() => { alert("취소되었습니다."); fetchReservations(); });
   };
 
-  const handleUnfavorite = (storeId) => { // 파라미터 이름을 명확히 storeId로!
+  const handleUnfavorite = (storeId) => {
     if (!window.confirm("관심 매장에서 해제하시겠습니까?")) return;
-
-    // ✅ StoreDetail과 똑같은 주소(http://localhost:8081/favorites/{가게ID})를 호출해야 합니다.
-    axios.patch(`http://localhost:8081/favorites/${storeId}`, {}, { withCredentials: true })
+    api.delete(`http://localhost:8081/favorites/${storeId}`, {}, { withCredentials: true })
       .then(() => {
         alert("해제되었습니다.");
-        fetchFavorites(); // 목록 새로고침
+        fetchFavorites();
       })
       .catch(err => {
         console.error("해제 실패", err);
@@ -135,7 +143,7 @@ const MyPage = () => {
 
   const handleDeleteAccount = () => {
     if (!window.confirm("정말 탈퇴하시겠습니까? 되돌릴 수 없습니다.")) return;
-    axios.delete("http://localhost:8081/users/me").then(() => {
+    api.delete("http://localhost:8081/users/me").then(() => {
       alert("탈퇴 처리가 완료되었습니다.");
       window.location.href = "/";
     });
@@ -201,7 +209,6 @@ const MyPage = () => {
           </div>
         )}
 
-        {/* 3. 관심 매장 탭 */}
         {activeTab === 'history-fav' && (
           <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
             {favorites.length > 0 ? favorites.map(fav => {
@@ -214,7 +221,6 @@ const MyPage = () => {
                     style={favInfoSection}
                     onClick={() => navigate(`/stores/${store.id}`)}
                   >
-                    {/* 상단: 카테고리 / 이름 / 영업상태 */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                       <span style={catBadgeStyle}>
                         {categoryMap[store.category] || store.category}
@@ -227,7 +233,6 @@ const MyPage = () => {
                       </span>
                     </div>
 
-                    {/* 하단: 주소와 관심수 (왼쪽에 정렬) */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: '#666', fontSize: '14px' }}>
                       <span>{store.address}</span>
                       <span style={{ color: '#eee' }}>|</span>
@@ -241,7 +246,6 @@ const MyPage = () => {
                     style={favDelBtnRow}
                     onClick={(e) => {
                       e.stopPropagation();
-                      // StoreDetail과 동일하게 store.id를 넘겨서 토글 방식으로 해제
                       handleUnfavorite(store.id);
                     }}
                   >
@@ -265,7 +269,7 @@ const MyPage = () => {
   );
 };
 
-// --- 스타일링 ---
+// --- 스타일링 (변경 없음) ---
 const navBtnStyle = (active) => ({ padding: '12px 20px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '15px', fontWeight: active ? 'bold' : 'normal', color: active ? '#1890ff' : '#666', borderBottom: active ? '2px solid #1890ff' : 'none' });
 const roleBadgeStyle = (role) => ({ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', background: '#f5f5f5', color: role === 'OWNER' ? '#fa8c16' : '#1890ff', border: '1px solid #ddd' });
 const infoRow = { display: 'flex', marginBottom: '15px', fontSize: '14px' };
@@ -311,7 +315,7 @@ const favInfoSection = {
   cursor: 'pointer',
   display: 'flex',
   flexDirection: 'column',
-  alignItems: 'flex-start' // 모든 텍스트를 왼쪽으로 밀착
+  alignItems: 'flex-start'
 };
 
 const favDelBtnRow = {
@@ -336,4 +340,5 @@ const catBadgeStyle = {
   fontWeight: '600',
   textTransform: 'uppercase'
 };
+
 export default MyPage;
