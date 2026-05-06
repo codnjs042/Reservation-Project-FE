@@ -53,21 +53,32 @@ const Home = () => {
   const [selectedSido, setSelectedSido] = useState(null);
   const [selectedSigungu, setSelectedSigungu] = useState(null);
 
-  // 0. 구글 로그인 후 처리 (api 인스턴스 사용)
+  // 0. 구글 로그인 후 처리 (수정된 로직)
   useEffect(() => {
+    // 이미 로그인된 상태면 더 이상 검사 안 함
     if (localStorage.getItem("isLoggedIn") === "true") return;
 
-    api.get("/users/me") // baseURL 덕분에 경로가 단축됨
-      .then(res => {
-        alert("구글 로그인 성공! 🎉");
-        localStorage.setItem("user", JSON.stringify(res.data));
-        localStorage.setItem("isLoggedIn", "true");
-        window.location.reload();
-      })
-      .catch(() => {
-        // 미로그인 상태 시 처리 생략
-      });
-  }, []);
+    // URL에서 ?login=process 가 있는지 확인
+    const params = new URLSearchParams(window.location.search);
+    const isProcessingLogin = params.get("login") === "process";
+
+    // 로그인 프로세스 중일 때만 /users/me 를 호출!
+    if (isProcessingLogin) {
+      api.get("/users/me")
+        .then(res => {
+          alert("구글 로그인 성공! 🎉");
+          localStorage.setItem("user", JSON.stringify(res.data));
+          localStorage.setItem("isLoggedIn", "true");
+
+          // 성공 후에는 URL에서 ?login=process를 지워주고 홈으로 이동
+          navigate("/", { replace: true });
+        })
+        .catch((err) => {
+          console.error("인증 실패", err);
+        });
+    }
+    // isProcessingLogin이 아니면(그냥 방문자면) 아무것도 하지 않음 -> 에러 팝업 안 뜸!
+  }, [navigate]);
 
   // 1. 초기 로드: 유명 맛집 및 시/도 목록 (api 인스턴스 사용)
   useEffect(() => {

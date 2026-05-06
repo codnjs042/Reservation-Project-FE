@@ -16,12 +16,15 @@ const MyStore = () => {
   const [selectedIds, setSelectedIds] = useState([]);
   const [groupedTables, setGroupedTables] = useState([]);
   const [storeDetail, setStoreDetail] = useState({
-      name: '',
-      phone: '',
-      address: '',
-      zipcode: '', // 👈 우편번호 필드 추가
-      status: 'READY'
-    });
+    name: '',
+    phone: '',
+    address: '',
+    detailAddress: '', // 👈 추가
+    zipcode: '',
+    sigunguCode: '',   // 👈 추가
+    category: 'KOREAN',
+    status: 'READY'
+  });
   // --- [탭 1: 예약 전용 상세 필터 상태] ---
   const filterPanelRef = useRef(null);
   const filterButtonRef = useRef(null);
@@ -83,11 +86,11 @@ const MyStore = () => {
       fullAddress += (extraAddress !== '' ? ` (${extraAddress})` : '');
     }
 
-    // ✅ 주소와 우편번호(zonecode)를 함께 업데이트
     setStoreDetail({
       ...storeDetail,
       address: fullAddress,
-      zipcode: data.zonecode // 👈 우편번호 저장
+      zipcode: data.zonecode,
+      sigunguCode: data.sigunguCode // 👈 시군구 코드 저장
     });
     setIsPostcodeOpen(false);
   };
@@ -177,13 +180,14 @@ const MyStore = () => {
       name: storeDetail.name,
       category: storeDetail.category,
       address: storeDetail.address,
-      zipcode: storeDetail.zipcode, // 👈 우편번호 포함
+      detailAddress: storeDetail.detailAddress, // 👈 추가
+      zipcode: storeDetail.zipcode,
+      sigunguCode: storeDetail.sigunguCode,     // 👈 추가
       phone: storeDetail.phone
     };
 
-    // 유효성 체크 (선택 사항이지만 추천)
-    if (!updateData.zipcode) {
-      alert("우편번호가 없습니다. 주소 찾기를 다시 진행해주세요.");
+    if (!updateData.address || !updateData.zipcode) {
+      alert("주소 정보를 정확히 입력해주세요.");
       return;
     }
 
@@ -191,7 +195,7 @@ const MyStore = () => {
       .then(() => alert("정보가 수정되었습니다."))
       .catch(err => {
         console.error("수정 실패:", err);
-        alert("정보 수정에 실패했습니다. 입력값을 확인해주세요.");
+        alert("정보 수정에 실패했습니다.");
       });
   };
 
@@ -510,10 +514,10 @@ const MyStore = () => {
                   <label style={labelStyle}>대표 연락처</label>
                   <input style={{...compactInput, width: '100%', boxSizing: 'border-box'}} value={storeDetail.phone || ''} onChange={e => setStoreDetail({...storeDetail, phone: e.target.value})} />
                 </div>
+                {/* [탭 4] 정보 섹션 내부의 위치 수정 부분 */}
                 <div>
                   <label style={labelStyle}>매장 위치 주소</label>
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                    {/* 우편번호 입력창 추가 (읽기 전용) */}
                     <input
                       style={{ ...compactInput, width: '100px', background: '#f5f5f5' }}
                       value={storeDetail.zipcode || ''}
@@ -521,31 +525,41 @@ const MyStore = () => {
                       placeholder="우편번호"
                     />
                     <input
-                      style={{ ...compactInput, flex: 1 }}
+                      style={{ ...compactInput, flex: 1, background: '#f5f5f5' }}
                       value={storeDetail.address || ''}
                       readOnly
-                      placeholder="주소 찾기 버튼을 눌러주세요"
+                      placeholder="주소 찾기를 이용해주세요"
                     />
                     <button
                       type="button"
                       onClick={() => setIsPostcodeOpen(!isPostcodeOpen)}
                       style={{ ...subBtnStyle, whiteSpace: 'nowrap' }}
                     >
-                      주소 찾기
+                      주소 검색
                     </button>
                   </div>
-                  {/* 주소 검색창 레이어 (클릭 시 노출) */}
+
+                  {/* 👈 상세 주소 입력 필드 추가 */}
+                  <input
+                    style={{ ...compactInput, width: '100%', boxSizing: 'border-box', marginTop: '5px' }}
+                    value={storeDetail.detailAddress || ''}
+                    onChange={e => setStoreDetail({ ...storeDetail, detailAddress: e.target.value })}
+                    placeholder="상세 주소를 입력하세요 (동, 호수 등)"
+                  />
+
                   {isPostcodeOpen && (
                     <div style={{
                       border: '1px solid #ddd',
                       marginTop: '10px',
                       position: 'relative',
-                      zIndex: 100
+                      zIndex: 100,
+                      borderRadius: '8px',
+                      overflow: 'hidden'
                     }}>
                       <DaumPostcode onComplete={handleComplete} />
                       <button
                         onClick={() => setIsPostcodeOpen(false)}
-                        style={{ width: '100%', padding: '10px', background: '#f5f5f5', border: 'none', cursor: 'pointer' }}
+                        style={{ width: '100%', padding: '10px', background: '#eee', border: 'none', cursor: 'pointer' }}
                       >
                         닫기
                       </button>
