@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api/api';   // 인터셉터가 적용된 커스텀 api 인스턴스 임포트
 import { StoreCard } from '../components/StoreCard';
 import { List, ChevronRight, MapPin, Target, X } from 'lucide-react';
 
@@ -25,7 +25,7 @@ const FoodCharacterIcon = ({ type }) => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      fontSize: '32px' // 이모지 크기 조절
+      fontSize: '32px'
     }}>
       {iconData[type] || '🍴'}
     </div>
@@ -46,41 +46,55 @@ const Home = () => {
 
   const mainColor = "#F0602A";
   const skyPointColor = "#7DB3D3";
-// 📍 지역 선택용 상태 (백엔드 규격: cd, name)
+
   const [isRegionOpen, setIsRegionOpen] = useState(false);
   const [sidoList, setSidoList] = useState([]);
   const [sigunguList, setSigunguList] = useState([]);
-  const [selectedSido, setSelectedSido] = useState(null); // {cd, name} 객체 저장
-  const [selectedSigungu, setSelectedSigungu] = useState(null); // {cd, name} 객체 저장
+  const [selectedSido, setSelectedSido] = useState(null);
+  const [selectedSigungu, setSelectedSigungu] = useState(null);
 
-  // 1. 초기 로드: 시/도 목록 (cd 없이 호출하여 전체 시도 가져오기)
+  // 0. 구글 로그인 후 처리 (api 인스턴스 사용)
   useEffect(() => {
-    axios.get(`http://localhost:8081/stores/famous`)
+    if (localStorage.getItem("isLoggedIn") === "true") return;
+
+    api.get("/users/me") // baseURL 덕분에 경로가 단축됨
+      .then(res => {
+        alert("구글 로그인 성공! 🎉");
+        localStorage.setItem("user", JSON.stringify(res.data));
+        localStorage.setItem("isLoggedIn", "true");
+        window.location.reload();
+      })
+      .catch(() => {
+        // 미로그인 상태 시 처리 생략
+      });
+  }, []);
+
+  // 1. 초기 로드: 유명 맛집 및 시/도 목록 (api 인스턴스 사용)
+  useEffect(() => {
+    api.get(`/stores/famous`)
       .then(res => setFamousStores(res.data.slice(0, 6)))
       .catch(err => console.error("트렌딩 로드 실패", err));
 
-    // 백엔드: cd가 없으면 시도(SIDO) 목록 반환
-    axios.get(`http://localhost:8081/area`)
+    api.get(`/area`)
       .then(res => {
-        if (res.data) setSidoList(res.data); // [ {cd: "11", name: "서울특별시"}, ... ]
+        if (res.data) setSidoList(res.data);
       })
       .catch(err => console.error("시도 로드 실패", err));
   }, []);
 
-  // 2. 시/도 클릭 시 시군구 호출
+  // 2. 시/도 클릭 시 시군구 호출 (api 인스턴스 사용)
   const handleSidoClick = (sido) => {
     setSelectedSido(sido);
     setSelectedSigungu(null);
 
-    // 백엔드: cd를 보내면 해당 지역의 시군구(SIGG) 목록 반환
-    axios.get(`http://localhost:8081/area`, { params: { cd: sido.cd } })
+    api.get(`/area`, { params: { cd: sido.cd } })
       .then(res => {
         if (res.data) setSigunguList(res.data);
       })
       .catch(err => console.error("시군구 로드 실패", err));
   };
 
-  // 3. 지도 초기화 및 위치 관련 함수들 (기본 로직 유지)
+  // 3. 지도 초기화
   useEffect(() => {
     if (window.kakao && window.kakao.maps) {
       window.kakao.maps.load(() => {
@@ -120,11 +134,13 @@ const Home = () => {
 
   useEffect(() => { if (mapInstance) refreshLocation(); }, [mapInstance]);
 
+  // 4. 주변 음식점 표시 (api 인스턴스 사용)
   const displayNearbyStores = (lat, lng) => {
     if (!mapInstance) return;
     nearMarkersRef.current.forEach(item => { if (item.setMap) item.setMap(null); });
     nearMarkersRef.current = [];
-    axios.get(`http://localhost:8081/stores/nearby`, { params: { latitude: lat, longitude: lng } })
+
+    api.get(`/stores/nearby`, { params: { latitude: lat, longitude: lng } })
       .then(res => {
         const imageSrc = "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png";
         const imageSize = new window.kakao.maps.Size(24, 35);
@@ -146,17 +162,13 @@ const Home = () => {
   };
 
   const categoryList = [
-    { id: 'KOREAN', name: '한식' },
-    { id: 'SNACK', name: '분식' },
-    { id: 'CHICKEN', name: '치킨' },
-    { id: 'ASIAN', name: '동양식' },
-    { id: 'WESTERN', name: '서양식' },
-    { id: 'CHINESE', name: '중식' },
-    { id: 'JAPANESE', name: '일식' },
-    { id: 'FASTFOOD', name: '패스트푸드' },
-    { id: 'BUFFET', name: '뷔페' },
-    { id: 'FUSION', name: '퓨전' }
+    { id: 'KOREAN', name: '한식' }, { id: 'SNACK', name: '분식' },
+    { id: 'CHICKEN', name: '치킨' }, { id: 'ASIAN', name: '동양식' },
+    { id: 'WESTERN', name: '서양식' }, { id: 'CHINESE', name: '중식' },
+    { id: 'JAPANESE', name: '일식' }, { id: 'FASTFOOD', name: '패스트푸드' },
+    { id: 'BUFFET', name: '뷔페' }, { id: 'FUSION', name: '퓨전' }
   ];
+
   return (
     <div style={{ background: '#F9F8F6', minHeight: '100vh', paddingBottom: '100px' }}>
       <section style={heroSection}>
@@ -185,7 +197,7 @@ const Home = () => {
           ))}
         </section>
 
-{/* 📍 2. 개선된 지역별 탐색 섹션 */}
+        {/* 2. 지역별 탐색 섹션 */}
         <section style={{ marginBottom: '60px' }}>
           {!isRegionOpen ? (
             <button onClick={() => setIsRegionOpen(true)} style={regionStartBtn}>
@@ -206,7 +218,6 @@ const Home = () => {
               </div>
 
               <div style={selectorLayout}>
-                {/* 왼쪽: 시/도 리스트 */}
                 <div style={sideBar}>
                   {sidoList.map(sido => (
                     <div
@@ -225,11 +236,9 @@ const Home = () => {
                   ))}
                 </div>
 
-                {/* 오른쪽: 시/군/구 그리드 */}
                 <div style={mainContent}>
                   {selectedSido ? (
                     <div style={gridContainer}>
-                      {/* '전체' 버튼 */}
                       <div
                         style={{
                           ...gridItem,
@@ -265,7 +274,6 @@ const Home = () => {
                   <button
                     style={{ ...confirmBtn, background: mainColor }}
                     onClick={() => {
-                        // cd가 2자리(시도) 혹은 5자리(시군구)로 백엔드에 넘어감
                         const finalCd = selectedSigungu ? selectedSigungu.cd : selectedSido.cd;
                         navigate(`/stores?cd=${finalCd}`);
                     }}
@@ -320,9 +328,7 @@ const Home = () => {
   );
 };
 
-// --- [Home 컴포넌트용 전체 스타일 가이드] ---
-
-// 1. 기존 레이아웃 스타일
+// --- [Style Guide] ---
 const innerContainer = { maxWidth: '1000px', margin: '0 auto', padding: '0 20px' };
 const heroSection = { padding: '80px 0 70px', background: 'linear-gradient(to bottom, #EFEEEC 0%, #F9F8F6 100%)' };
 const heroTitle = { fontSize: '2.6rem', fontWeight: '900', textAlign: 'center', marginBottom: '25px', lineHeight: '1.2' };
@@ -341,8 +347,6 @@ const mapHeaderOverlay = { position: 'absolute', top: '20px', left: '20px', righ
 const addressBadge = { background: 'rgba(255, 255, 255, 0.95)', padding: '10px 18px', borderRadius: '30px', fontWeight: '800', fontSize: '0.9rem', display: 'flex', alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' };
 const myLocBtn = { background: '#fff', border: 'none', padding: '10px 18px', borderRadius: '30px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: '#F0602A' };
 const locationBtnStyle = { width: '100%', background: '#F0602A', color: '#fff', border: 'none', padding: '15px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1.1rem' };
-
-// 2. 지역 탐색 모던 패널 스타일 (에러 방지용 필수 포함)
 const modernPanelStyle = { background: '#fff', borderRadius: '30px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden', border: '1px solid #eee' };
 const regionPanelHeader = { padding: '25px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
 const selectorLayout = { display: 'flex', height: '400px' };
@@ -356,8 +360,6 @@ const selectedBadge = { marginLeft: '15px', padding: '5px 15px', background: '#F
 const emptyMessage = { height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#aaa', fontSize: '1.1rem' };
 const panelFooter = { padding: '20px', borderTop: '1px solid #eee' };
 const confirmBtn = { width: '100%', color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', fontSize: '1.1rem', cursor: 'pointer', boxShadow: '0 8px 20px rgba(240, 96, 42, 0.3)' };
-
-// 3. 버튼 및 특수 효과
 const regionStartBtn = {
   width: '100%', padding: '22px', borderRadius: '20px', border: 'none', background: '#fff',
   color: '#444', fontWeight: '800', fontSize: '1.15rem', cursor: 'pointer',
@@ -367,4 +369,5 @@ const closeBtn = { border: 'none', background: 'none', color: '#999', cursor: 'p
 const mapOverlayStyle = { position: 'absolute', top: 0, left: 0, width: '100%', height: '350px', background: 'rgba(0,0,0,0.5)', zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' };
 const guideBoxStyle = { background: 'white', padding: '25px', borderRadius: '20px', textAlign: 'center', width: '80%', maxWidth: '300px' };
 const retryBtnStyle = { background: '#F0602A', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: 'bold' };
+
 export default Home;
