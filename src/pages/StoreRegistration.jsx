@@ -16,7 +16,7 @@ const StoreRegistration = () => {
     phone: '',
     ownerName: '',
     businessNumber: '',
-    // 위경도 필드 제거 (백엔드에서 처리하거나 필요 없는 경우)
+    sigunguCode: ''
   });
 
   const handleChange = (e) => {
@@ -25,6 +25,11 @@ const StoreRegistration = () => {
   };
 
   const handleComplete = (data) => {
+    // 1. 가공할 데이터를 먼저 변수에 담습니다. (가장 중요!)
+    console.log(data);
+
+    const sigunguCode = data.sigunguCode;
+
     let fullAddress = data.address;
     let extraAddress = '';
 
@@ -34,11 +39,12 @@ const StoreRegistration = () => {
       fullAddress += (extraAddress !== '' ? ` (${extraAddress})` : '');
     }
 
-    // 주소 정보만 업데이트
+    // 3. 상태 업데이트
     setFormData(prev => ({
       ...prev,
       address: fullAddress,
       zipcode: data.zonecode,
+      sigunguCode: sigunguCode
     }));
 
     setIsPostcodeOpen(false);
