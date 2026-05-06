@@ -63,10 +63,13 @@ const MyStore = () => {
 
   const categoryOptions = [
     { key: 'KOREAN', label: '한식' },
-    { key: 'JAPANESE', label: '일식' },
-    { key: 'CHINESE', label: '중식' },
-    { key: 'WESTERN', label: '양식' },
-    { key: 'ASIAN', label: '아시안' }
+    { key: 'SNACK', label: '분식' },
+    { key: 'CHICKEN', label: '치킨' },
+    { key: 'ASIAN', label: '동양식' },
+    { key: 'WESTERN', label: '서양식' },
+    { key: 'FASTFOOD', label: '패스트푸드' },
+    { key: 'BUFFET', label: '뷔페' },
+    { key: 'FUSION', label: '퓨전' }
   ];
 
   // 2. 주소 선택 핸들러 수정

@@ -60,7 +60,14 @@ export const styles = {
 };
 
 export const categoryMap = {
-  "KOREAN": "한식", "JAPANESE": "일식", "CHINESE": "중식", "WESTERN": "양식", "ASIAN": "아시안"
+  "KOREAN": "한식",
+  "SNACK": "분식",
+  "CHICKEN": "치킨",
+  "ASIAN": "동양식",
+  "WESTERN": "서양식",
+  "FASTFOOD": "패스트푸드",
+  "BUFFET": "뷔페",
+  "FUSION": "퓨전"
 };
 
 // --- 2. StoreCard 컴포넌트 ---
@@ -148,10 +155,13 @@ const Home = () => {
 
   const categoryList = [
     { id: 'KOREAN', name: '한식', icon: '🍚' },
-    { id: 'JAPANESE', name: '일식', icon: '🍣' },
-    { id: 'CHINESE', name: '중식', icon: '🥡' },
-    { id: 'WESTERN', name: '양식', icon: '🍝' },
-    { id: 'ASIAN', name: '아시안', icon: '🍜' },
+    { id: 'SNACK', name: '분식', icon: '🍢' },
+    { id: 'CHICKEN', name: '치킨', icon: '🍗' },
+    { id: 'ASIAN', name: '동양식', icon: '🍜' },
+    { id: 'WESTERN', name: '서양식', icon: '🍝' },
+    { id: 'FASTFOOD', name: '패스트푸드', icon: '🍔' },
+    { id: 'BUFFET', name: '뷔페', icon: '🍽️' },
+    { id: 'FUSION', name: '퓨전', icon: '🍱' }
   ];
 
   return (

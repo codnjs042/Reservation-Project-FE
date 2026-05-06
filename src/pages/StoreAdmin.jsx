@@ -3,7 +3,16 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
 const STORE_MAP = {
-  category: { KOREAN: "한식", JAPANESE: "일식", CHINESE: "중식", WESTERN: "양식", ASIAN: "아시안" },
+  category: {
+    KOREAN: "한식",
+    SNACK: "분식",
+    CHICKEN: "치킨",
+    ASIAN: "동양식",
+    WESTERN: "서양식",
+    FASTFOOD: "패스트푸드",
+    BUFFET: "뷔페",
+    FUSION: "퓨전"
+  },
   status: { READY: "준비중", OPEN: "영업중", HIDDEN: "일시중지", SHUTDOWN: "폐업" }
 };
 

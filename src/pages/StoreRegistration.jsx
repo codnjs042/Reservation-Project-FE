@@ -161,10 +161,13 @@ const StoreRegistration = () => {
           <label style={labelStyle}>카테고리</label>
           <select name="category" value={formData.category} onChange={handleChange} style={{...inputStyle, cursor: 'pointer'}}>
             <option value="KOREAN">한식</option>
-            <option value="JAPANESE">일식</option>
-            <option value="CHINESE">중식</option>
-            <option value="WESTERN">양식</option>
-            <option value="ASIAN">아시안</option>
+            <option value="SNACK">분식</option>
+            <option value="CHICKEN">치킨</option>
+            <option value="ASIAN">동양식</option>
+            <option value="WESTERN">서양식</option>
+            <option value="FASTFOOD">패스트푸드</option>
+            <option value="BUFFET">뷔페</option>
+            <option value="FUSION">퓨전</option>
           </select>
         </div>
 

@@ -4,52 +4,32 @@ import axios from 'axios';
 import { StoreCard } from '../components/StoreCard';
 import { List, ChevronRight, MapPin, Target, X } from 'lucide-react';
 
-// ⭐ 캐릭터 아이콘 컴포넌트 (기존 코드 유지)
 const FoodCharacterIcon = ({ type }) => {
-  const commonAttrs = { stroke: "#333", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" };
-  const cheekAttrs = { cx: "26", cy: "30", r: "1.5", fill: "#FFBABA", opacity: "0.8" };
   const iconData = {
-    KOREAN: (
-      <svg viewBox="0 0 64 64" fill="none" style={{ width: '100%', height: '100%', transform: 'scale(0.85)' }}>
-        <path d="M12 28C12 28 15 20 32 20C49 20 52 28 52 28C52 38.5 44 48 32 48C20 48 12 38.5 12 28Z" fill="#F0EFE9" {...commonAttrs} />
-        <path d="M12 28H52" {...commonAttrs} strokeWidth="1.5" />
-        <ellipse cx="32" cy="18" rx="14" ry="10" fill="white" {...commonAttrs} />
-        <circle cx="32" cy="18" r="4.5" fill="#FFC107" {...commonAttrs} />
-        <circle cx="28" cy="35" r="1.5" fill="#333" /><circle cx="36" cy="35" r="1.5" fill="#333" />
-        <circle {...cheekAttrs} cx="26" cy="35" /><circle {...cheekAttrs} cx="38" cy="35" />
-      </svg>
-    ),
-    JAPANESE: (
-      <svg viewBox="0 0 64 64" fill="none" style={{ width: '100%', height: '100%', transform: 'scale(0.85)' }}>
-        <rect x="14" y="24" width="36" height="24" rx="12" fill="white" {...commonAttrs} />
-        <path d="M14 28C14 28 20 18 32 18C44 18 50 28 50 28H14Z" fill="#FF8D6D" {...commonAttrs} />
-        <circle cx="28" cy="36" r="1.5" fill="#333" /><circle cx="36" cy="36" r="1.5" fill="#333" />
-        <circle {...cheekAttrs} cx="26" cy="36" /><circle {...cheekAttrs} cx="38" cy="36" />
-      </svg>
-    ),
-    CHINESE: (
-      <svg viewBox="0 0 64 64" fill="none" style={{ width: '100%', height: '100%', transform: 'scale(0.85)' }}>
-        <ellipse cx="32" cy="40" rx="20" ry="12" fill="#EAEAEA" {...commonAttrs} />
-        <path d="M16 32C16 32 20 20 32 20C44 20 48 32 16 32Z" fill="#4B3621" {...commonAttrs} />
-        <circle cx="28" cy="40" r="1.5" fill="#FBFBFB" /><circle cx="36" cy="40" r="1.5" fill="#FBFBFB" />
-      </svg>
-    ),
-    WESTERN: (
-      <svg viewBox="0 0 64 64" fill="none" style={{ width: '100%', height: '100%', transform: 'scale(0.85)' }}>
-        <rect x="12" y="16" width="40" height="36" rx="18" fill="#AF4C24" {...commonAttrs} />
-        <circle cx="28" cy="33" r="1.5" fill="#333" /><circle cx="36" cy="33" r="1.5" fill="#333" />
-        <circle {...cheekAttrs} cx="26" cy="33" /><circle {...cheekAttrs} cx="38" cy="33" />
-      </svg>
-    ),
-    ASIAN: (
-      <svg viewBox="0 0 64 64" fill="none" style={{ width: '100%', height: '100%', transform: 'scale(0.85)' }}>
-        <path d="M12 28C12 28 15 20 32 20C49 20 52 28 52 28C52 38.5 44 48 32 48C20 48 12 38.5 12 28Z" fill="#F8F4E6" {...commonAttrs} />
-        <circle cx="28" cy="35" r="1.5" fill="#333" /><circle cx="36" cy="35" r="1.5" fill="#333" />
-        <circle {...cheekAttrs} cx="26" cy="35" /><circle {...cheekAttrs} cx="38" cy="35" />
-      </svg>
-    ),
+    KOREAN: '🍚',
+    SNACK: '🍢',
+    CHICKEN: '🍗',
+    JAPANESE: '🍣',
+    CHINESE: '🥡',
+    WESTERN: '🍝',
+    ASIAN: '🍜',
+    FASTFOOD: '🍔',
+    BUFFET: '🍽️',
+    FUSION: '🍱'
   };
-  return <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{iconData[type] || '🍴'}</div>;
+
+  return (
+    <div style={{
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: '32px' // 이모지 크기 조절
+    }}>
+      {iconData[type] || '🍴'}
+    </div>
+  );
 };
 
 const Home = () => {
@@ -165,8 +145,18 @@ const Home = () => {
       });
   };
 
-  const categoryList = [{ id: 'KOREAN', name: '한식' }, { id: 'JAPANESE', name: '일식' }, { id: 'CHINESE', name: '중식' }, { id: 'WESTERN', name: '양식' }, { id: 'ASIAN', name: '아시안' }];
-
+  const categoryList = [
+    { id: 'KOREAN', name: '한식' },
+    { id: 'SNACK', name: '분식' },
+    { id: 'CHICKEN', name: '치킨' },
+    { id: 'ASIAN', name: '동양식' },
+    { id: 'WESTERN', name: '서양식' },
+    { id: 'CHINESE', name: '중식' },
+    { id: 'JAPANESE', name: '일식' },
+    { id: 'FASTFOOD', name: '패스트푸드' },
+    { id: 'BUFFET', name: '뷔페' },
+    { id: 'FUSION', name: '퓨전' }
+  ];
   return (
     <div style={{ background: '#F9F8F6', minHeight: '100vh', paddingBottom: '100px' }}>
       <section style={heroSection}>
@@ -314,7 +304,7 @@ const Home = () => {
         {/* 4. 트렌드 맛집 섹션 */}
         <section style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <div style={famousHeader}>
-            <h2 style={{ fontSize: '1.9rem', fontWeight: '900' }}>지금 가장 뜨거운 <span style={{ color: mainColor }}>트렌드 맛집</span> 🔥</h2>
+            <h2 style={{ fontSize: '1.9rem', fontWeight: '900' }}>최근 급상승 <span style={{ color: mainColor }}>트렌드 맛집</span> 🔥</h2>
             <button style={viewAllBtn} onClick={() => navigate('/stores')}>더보기 ➔</button>
           </div>
           <div style={storeGridWide}>

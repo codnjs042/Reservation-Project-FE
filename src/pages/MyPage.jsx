@@ -26,12 +26,14 @@ const MyPage = () => {
   const [tempFilter, setTempFilter] = useState({ ...appliedFilter });
 
   const categoryMap = {
-    'KOREAN': '한식',
-    'CHINESE': '중식',
-    'JAPANESE': '일식',
-    'WESTERN': '양식',
-    'CAFE': '카페',
-    'CHICKEN': '치킨'
+    "KOREAN": "한식",
+    "SNACK": "분식",
+    "CHICKEN": "치킨",
+    "ASIAN": "동양식",
+    "WESTERN": "서양식",
+    "FASTFOOD": "패스트푸드",
+    "BUFFET": "뷔페",
+    "FUSION": "퓨전"
   };
 
   const statusMap = {
