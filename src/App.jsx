@@ -15,6 +15,7 @@ import StoreList from './pages/StoreList';
 import UserAdmin from './pages/UserAdmin';
 import StoreAdmin from './pages/StoreAdmin';
 import ReservationAdmin from './pages/ReservationAdmin';
+import Footer from './components/Footer';
 
 function App() {
   return (
@@ -41,6 +42,7 @@ function App() {
                 <Route path="/admin/reservations" element={<ReservationAdmin />} />
             </Route>
         </Routes>
+        <Footer />
       </BrowserRouter>
   );
 }

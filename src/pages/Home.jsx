@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../api/api';   // 인터셉터가 적용된 커스텀 api 인스턴스 임포트
+import api from '../api/api';
 import { StoreCard } from '../components/StoreCard';
 import { List, ChevronRight, MapPin, Target, X } from 'lucide-react';
 

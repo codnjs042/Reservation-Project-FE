@@ -7,6 +7,8 @@ const api = axios.create({
 });
 
 // 응답 가로채기 (Response Interceptor)
+
+
 api.interceptors.response.use(
   (response) => response, // 성공하면 그냥 통과
   (error) => {
