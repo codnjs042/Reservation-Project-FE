@@ -1,609 +1,152 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import api from '../api/api'; // ✅ 인터셉터가 적용된 api 인스턴스 임포트
-import { useNavigate } from 'react-router-dom';
-import DaumPostcode from 'react-daum-postcode';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import api from '../api/api';
+import ReservationTab from '../components/myStore/ReservationTab';
+import TableTab from '../components/myStore/TableTab';
+import ScheduleTab from '../components/myStore/ScheduleTab';
+import StoreInfoTab from '../components/myStore/StoreInfoTab';
 
 const MyStore = () => {
-  const navigate = useNavigate(); // 세션 만료 시 대응을 위해 추가
+  const mainColor = "#F0602A"; // 주황
+  const skyPointColor = "#7DB3D3"; // 하늘
+
+  // 탭 메뉴 설정
+  const menuItems = [
+    { key: 'reservations', label: '예약 현황' },
+    { key: 'tables', label: '테이블 관리' },
+    { key: 'schedules', label: '영업 시간' },
+    { key: 'info', label: '매장 정보' }
+  ];
+
+  const location = useLocation();
+  const passedStoreId = location.state?.storeId;
+  const passedTab = location.state?.activeTab;
+
   const [stores, setStores] = useState([]);
   const [selectedStore, setSelectedStore] = useState(null);
-  const [activeTab, setActiveTab] = useState('reservations');
-  const [loading, setLoading] = useState(true);
-  const [isPostcodeOpen, setIsPostcodeOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState(passedTab || 'reservations');
 
-  // --- [공통 데이터 상태] ---
-  const [reservations, setReservations] = useState([]);
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [groupedTables, setGroupedTables] = useState([]);
-  const [storeDetail, setStoreDetail] = useState({
-    name: '',
-    phone: '',
-    address: '',
-    detailAddress: '', // 👈 추가
-    zipcode: '',
-    sigunguCode: '',   // 👈 추가
-    category: 'KOREAN',
-    status: 'READY'
-  });
-  // --- [탭 1: 예약 전용 상세 필터 상태] ---
-  const filterPanelRef = useRef(null);
-  const filterButtonRef = useRef(null);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [appliedFilter, setAppliedFilter] = useState({
-    type: 'name', keyword: '', startDate: '', endDate: '', status: []
-  });
-  const [tempFilter, setTempFilter] = useState({ ...appliedFilter });
-
-  const statusMap = {
-    'CONFIRMED': { label: '확정', color: '#52c41a' },
-    'VISITED': { label: '방문완료', color: '#1890ff' },
-    'PENDING': { label: '대기', color: '#faad14' },
-    'REJECTED': { label: '거절', color: '#f5222d' },
-    'NO_SHOW': { label: '노쇼', color: '#fa8c16' },
-    'CANCELED': { label: '취소', color: '#999' }
-  };
-
-  const days = [
-    { key: 'MONDAY', label: '월' }, { key: 'TUESDAY', label: '화' },
-    { key: 'WEDNESDAY', label: '수' }, { key: 'THURSDAY', label: '목' },
-    { key: 'FRIDAY', label: '금' }, { key: 'SATURDAY', label: '토' },
-    { key: 'SUNDAY', label: '일' }
-  ];
-
-  const storeStatuses = [
-    { key: 'READY', label: '준비중', color: '#faad14' },
-    { key: 'OPEN', label: '영업중', color: '#52c41a' },
-    { key: 'HIDDEN', label: '일시중지', color: '#ff4d4f' },
-    { key: 'SHUTDOWN', label: '폐업', color: '#000000' }
-  ];
-
-  const [dayConfigs, setDayConfigs] = useState(
-    days.reduce((acc, day) => ({
-      ...acc,
-      [day.key]: { openTime: '09:00', closeTime: '21:00', interval: 60, breaks: [], isClosed: false }
-    }), {})
-  );
-
-  const categoryOptions = [
-    { key: 'KOREAN', label: '한식' },
-    { key: 'SNACK', label: '분식' },
-    { key: 'CHICKEN', label: '치킨' },
-    { key: 'ASIAN', label: '동양식' },
-    { key: 'WESTERN', label: '서양식' },
-    { key: 'FASTFOOD', label: '패스트푸드' },
-    { key: 'BUFFET', label: '뷔페' },
-    { key: 'FUSION', label: '퓨전' }
-  ];
-
-  // 2. 주소 선택 핸들러 수정
-  const handleComplete = (data) => {
-    let fullAddress = data.address;
-    let extraAddress = '';
-
-    if (data.addressType === 'R') {
-      if (data.bname !== '') extraAddress += data.bname;
-      if (data.buildingName !== '') extraAddress += (extraAddress !== '' ? `, ${data.buildingName}` : data.buildingName);
-      fullAddress += (extraAddress !== '' ? ` (${extraAddress})` : '');
-    }
-
-    setStoreDetail({
-      ...storeDetail,
-      address: fullAddress,
-      zipcode: data.zonecode,
-      sigunguCode: data.sigunguCode // 👈 시군구 코드 저장
-    });
-    setIsPostcodeOpen(false);
-  };
-
-  // --- [이벤트 핸들러] ---
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (filterPanelRef.current && !filterPanelRef.current.contains(e.target) &&
-          filterButtonRef.current && !filterButtonRef.current.contains(e.target)) {
-        setIsFilterOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // ✅ 초기 매장 목록 로드 (api 인스턴스 사용)
+  // 매장 목록 로드
   useEffect(() => {
     api.get(`/owners/stores`)
       .then(res => {
-        setStores(res.data);
-        if (res.data && res.data.length > 0) setSelectedStore(res.data[0]);
+        const data = res.data || [];
+        setStores(data);
+
+        if (data.length > 0) {
+          // Business 페이지에서 전달받은 ID가 있으면 해당 매장 선택, 없으면 첫 번째 매장
+          const initialStore = passedStoreId
+            ? data.find(s => s.id === parseInt(passedStoreId))
+            : data[0];
+
+          setSelectedStore(initialStore || data[0]);
+        }
       })
-      .catch(err => console.error("매장 목록 로드 실패", err))
-      .finally(() => setLoading(false));
-  }, []);
+      .catch(err => console.error("매장 목록 로드 실패:", err));
+  }, [passedStoreId]);
 
-  const fetchData = useCallback(() => {
-    if (!selectedStore) return;
-    const storeId = selectedStore.id;
+  // 외부(Business 페이지 등)에서 탭 변경 요청이 올 경우 동기화
+  useEffect(() => {
+    if (passedTab) setActiveTab(passedTab);
+  }, [passedTab]);
 
-    if (activeTab === 'reservations') {
-      api.get(`/owners/stores/${storeId}/reservations`, {
-          params: {
-            type: appliedFilter.type,
-            keyword: appliedFilter.keyword || null,
-            startDate: appliedFilter.startDate || null,
-            endDate: appliedFilter.endDate || null,
-            status: appliedFilter.status.length > 0 ? appliedFilter.status.join(',') : null
-          }
-        })
-        .then(res => setReservations(res.data || []))
-        .catch(err => console.error("예약 로드 실패:", err));
-    } else if (activeTab === 'tables') {
-      api.get(`/stores/${storeId}/tables`)
-        .then(res => {
-          const groups = [];
-          res.data.forEach(item => {
-            const existing = groups.find(g => g.tableName === item.tableName);
-            if (existing) existing.count += 1;
-            else groups.push({ originName: item.tableName, tableName: item.tableName, minCapacity: item.minCapacity, maxCapacity: item.maxCapacity, count: 1 });
-          });
-          setGroupedTables(groups);
-        });
-    } else if (activeTab === 'info') {
-      api.get(`/owners/stores/${storeId}`)
-        .then(res => setStoreDetail(res.data));
+  /**
+   * 자식 탭(StoreInfoTab)에서 매장 상태(영업중/준비중 등)를 변경했을 때
+   * 부모의 상태를 업데이트하여 사이드바에 즉시 반영하는 함수
+   */
+  const handleStoreStatusUpdate = (storeId, newStatus) => {
+    // 1. 전체 매장 리스트 업데이트 (셀렉트 박스 이모지 반영)
+    setStores(prev => prev.map(s => s.id === storeId ? { ...s, status: newStatus } : s));
+
+    // 2. 현재 선택된 매장 객체 업데이트 (하단 텍스트 반영)
+    if (selectedStore && selectedStore.id === storeId) {
+      setSelectedStore(prev => ({ ...prev, status: newStatus }));
     }
-  }, [selectedStore, activeTab, appliedFilter]);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
-
-  // --- [정보 관리 핸들러] ---
-  const handleUpdateStoreStatus = (newStatus) => {
-    if (newStatus === 'SHUTDOWN') {
-      if (!window.confirm("정말로 이 가게를 폐업 처리하시겠습니까? 데이터가 삭제됩니다.")) return;
-      api.delete(`/owners/stores`, {
-        data: { ids: [selectedStore.id] }
-      })
-      .then(() => {
-        alert("폐업 처리가 완료되었습니다.");
-        window.location.reload();
-      })
-      .catch(() => alert("폐업 처리 실패"));
-      return;
-    }
-
-    api.patch(`/owners/stores/${selectedStore.id}/status`, { status: newStatus })
-      .then(() => {
-        setStoreDetail({ ...storeDetail, status: newStatus });
-        alert(`상태가 [${newStatus}]로 변경되었습니다.`);
-      });
   };
-
-  const handleUpdateStoreInfo = () => {
-    const updateData = {
-      name: storeDetail.name,
-      category: storeDetail.category,
-      address: storeDetail.address,
-      detailAddress: storeDetail.detailAddress, // 👈 추가
-      zipcode: storeDetail.zipcode,
-      sigunguCode: storeDetail.sigunguCode,     // 👈 추가
-      phone: storeDetail.phone
-    };
-
-    if (!updateData.address || !updateData.zipcode) {
-      alert("주소 정보를 정확히 입력해주세요.");
-      return;
-    }
-
-    api.patch(`/owners/stores/${selectedStore.id}`, updateData)
-      .then(() => alert("정보가 수정되었습니다."))
-      .catch(err => {
-        console.error("수정 실패:", err);
-        alert("정보 수정에 실패했습니다.");
-      });
-  };
-
-  // --- [예약/테이블 핸들러] ---
-  const handleStatusChange = (status) => {
-    if (selectedIds.length === 0) return alert("대상을 선택해주세요.");
-    api.patch(`/owners/stores/${selectedStore.id}/reservations`, { ids: selectedIds, status })
-      .then(() => { alert(`상태 변경 완료`); fetchData(); setSelectedIds([]); })
-      .catch(() => alert("변경 실패"));
-  };
-
-  const toggleSelect = (id) => {
-    setSelectedIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
-  };
-
-  const handleTableUpdate = (index, field, value) => {
-    const updated = [...groupedTables];
-    updated[index][field] = value;
-    setGroupedTables(updated);
-  };
-
-  const saveTableChanges = (groupData) => {
-    const dto = {
-      oldTableName: groupData.originName || groupData.tableName,
-      newTableName: groupData.tableName,
-      minCapacity: Number(groupData.minCapacity),
-      maxCapacity: Number(groupData.maxCapacity),
-      count: parseInt(groupData.count)
-    };
-    api.put(`/stores/${selectedStore.id}/tables`, dto)
-      .then(() => { alert("반영완료"); fetchData(); });
-  };
-
-  // --- [영업시간 핸들러] ---
-  const handleConfigChange = (day, field, value) => setDayConfigs({ ...dayConfigs, [day]: { ...dayConfigs[day], [field]: value } });
-  const addBreak = (day) => {
-    const updated = { ...dayConfigs[day] };
-    updated.breaks.push({ startTime: '', endTime: '' });
-    setDayConfigs({ ...dayConfigs, [day]: updated });
-  };
-  const handleBreakChange = (day, index, field, value) => {
-    const updated = { ...dayConfigs[day] };
-    updated.breaks[index][field] = value;
-    setDayConfigs({ ...dayConfigs, [day]: updated });
-  };
-  const saveSingleDaySchedule = (dayKey) => {
-    const config = dayConfigs[dayKey];
-    const upsertSchedules = config.isClosed ? [] : convertToUpsertRequest(config);
-    api.put(`/stores/${selectedStore.id}/schedules/${dayKey}`, { upsertSchedules })
-      .then(() => alert(`${dayKey} 설정 저장 완료`));
-  };
-
-  const convertToUpsertRequest = (config) => {
-    const { openTime, closeTime, interval, breaks } = config;
-    const sortedBreaks = [...breaks].filter(b => b.startTime && b.endTime).sort((a, b) => a.startTime.localeCompare(b.startTime));
-    const result = [];
-    let currentStart = openTime;
-    sortedBreaks.forEach(brk => {
-      if (currentStart < brk.startTime) result.push({ startTime: `${currentStart}:00`, endTime: `${brk.startTime}:00`, intervalMinute: parseInt(interval) });
-      currentStart = brk.endTime;
-    });
-    if (currentStart < closeTime) result.push({ startTime: `${currentStart}:00`, endTime: `${closeTime}:00`, intervalMinute: parseInt(interval) });
-    return result;
-  };
-
-  if (loading) return <div style={centerMsgStyle}>로드 중...</div>;
 
   return (
-    <div style={containerStyle}>
-      <div style={headerStyle}>
-        <h2 style={{ margin: 0, fontSize: '1.5rem' }}>🏪 매장 관리 통합 시스템</h2>
-        <select value={selectedStore?.id || ''} onChange={(e) => setSelectedStore(stores.find(s => s.id === parseInt(e.target.value)))} style={selectStyle}>
-          {stores.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-      </div>
-
-      <div style={tabContainerStyle}>
-        {['reservations', 'tables', 'schedules', 'info'].map(t => (
-          <button key={t} onClick={() => setActiveTab(t)} style={tabBtnStyle(activeTab === t)}>
-            {t === 'reservations' ? '📅 예약' : t === 'tables' ? '🪑 테이블' : t === 'schedules' ? '⏰ 영업시간' : 'ℹ️ 정보'}
-          </button>
-        ))}
-      </div>
-
-      <div style={contentBoxStyle}>
-        {/* [탭 1] 예약 관리 */}
-        {activeTab === 'reservations' && (
-          <div style={{ position: 'relative', width: '100%' }}>
-            <h3 style={{ margin: '0 0 20px 0' }}>실시간 예약 현황</h3>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <button ref={filterButtonRef} onClick={() => setIsFilterOpen(!isFilterOpen)} style={filterToggleBtnStyle}>상세 필터 🔍</button>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => handleStatusChange('VISITED')} style={actionBtn('#52c41a')}>방문완료</button>
-                <button onClick={() => handleStatusChange('NO_SHOW')} style={actionBtn('#fa8c16')}>노쇼</button>
-                <button onClick={() => handleStatusChange('REJECTED')} style={actionBtn('#f5222d')}>거절</button>
-              </div>
-            </div>
-            {isFilterOpen && (
-              <div ref={filterPanelRef} style={filterLayerStyle}>
-                <label style={filterLabelStyle}>검색 조건</label>
-                <div style={{ display: 'flex', gap: '5px', marginBottom: '15px' }}>
-                  <select style={{...compactInput, width: '90px'}} value={tempFilter.type} onChange={e => setTempFilter({...tempFilter, type: e.target.value})}>
-                    <option value="name">예약자명</option>
-                    <option value="id">번호(ID)</option>
-                  </select>
-                  <input style={compactInput} placeholder="검색어 입력" value={tempFilter.keyword} onChange={e => setTempFilter({...tempFilter, keyword: e.target.value})} />
-                </div>
-                <label style={filterLabelStyle}>날짜 범위</label>
-                <div style={{ display: 'flex', gap: '5px', marginBottom: '15px' }}>
-                  <input type="date" style={compactInput} value={tempFilter.startDate} onChange={e => setTempFilter({...tempFilter, startDate: e.target.value})} />
-                  <input type="date" style={compactInput} value={tempFilter.endDate} onChange={e => setTempFilter({...tempFilter, endDate: e.target.value})} />
-                </div>
-                <label style={filterLabelStyle}>상태 필터</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '20px' }}>
-                  {Object.entries(statusMap).map(([key, val]) => (
-                    <button key={key} onClick={() => setTempFilter(p => ({...p, status: p.status.includes(key) ? p.status.filter(s => s !== key) : [...p.status, key]}))}
-                            style={statusChipStyle(tempFilter.status.includes(key), val.color)}>{val.label}</button>
-                  ))}
-                </div>
-                <button onClick={() => { setAppliedFilter({...tempFilter}); setIsFilterOpen(false); }} style={applyFilterBtnStyle}>검색 적용</button>
+    <div style={pageWrapper}>
+      {/* 왼쪽 사이드바: 매장 선택 및 메뉴 */}
+      <aside style={sidebarStyle}>
+        <div style={storeSummary}>
+            <p style={{fontSize: '12px', color: '#999', marginBottom: '8px'}}>매장 선택</p>
+            <select
+              value={selectedStore?.id || ''}
+              onChange={(e) => {
+                // 1. 선택된 매장 변경
+                setSelectedStore(stores.find(s => s.id === parseInt(e.target.value)));
+                // 2. 매장을 바꿨으므로 첫 번째 탭인 '예약 현황'으로 강제 이동 ◀ 추가된 로직!
+                setActiveTab('reservations');
+              }}
+              style={storeSelectBox}
+            >
+              {stores.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.status === 'OPEN' ? '🟢 ' : (s.status === 'READY' ? '🟠 ' : '🔴 ')}{s.name}
+                </option>
+              ))}
+            </select>
+            {selectedStore && (
+              <div style={{marginTop: '10px', fontSize: '14px', color: mainColor, fontWeight: 'bold'}}>
+                {/* 상태에 따른 텍스트 표시 */}
+                {selectedStore.status === 'OPEN' ? '영업 중' :
+                 selectedStore.status === 'READY' ? '준비 중' :
+                 selectedStore.status === 'HIDDEN' ? '일시 중지' : '상태 정보 없음'}
               </div>
             )}
-            <table style={tableStyle}>
-              <thead style={{ background: '#f8f9fa' }}>
-                <tr>
-                  <th style={thStyle}><input type="checkbox" checked={selectedIds.length === reservations.length && reservations.length > 0} onChange={(e) => setSelectedIds(e.target.checked ? reservations.map(r => r.id) : [])} /></th>
-                  <th style={thStyle}>No.</th><th style={thStyle}>예약자</th><th style={thStyle}>인원</th><th style={thStyle}>예약시간</th><th style={thStyle}>상태</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reservations.length > 0 ? reservations.map(r => (
-                  <tr key={r.id} style={trStyle}>
-                    <td style={tdStyle}><input type="checkbox" checked={selectedIds.includes(r.id)} onChange={() => toggleSelect(r.id)} /></td>
-                    <td style={tdStyle}>{r.id}</td><td style={tdStyle}><b>{r.name}</b></td><td style={tdStyle}>{r.headCount}명</td>
-                    <td style={tdStyle}>{r.targetDateTime?.replace('T', ' ').substring(0, 16)}</td>
-                    <td style={tdStyle}><span style={statusBadge(r.status)}>{statusMap[r.status]?.label || r.status}</span></td>
-                  </tr>
-                )) : <tr><td colSpan="6" style={{...tdStyle, textAlign: 'center', padding: '60px', color: '#999'}}>조건에 맞는 예약 내역이 없습니다.</td></tr>}
-              </tbody>
-            </table>
           </div>
-        )}
+        <nav style={menuList}>
+          {menuItems.map(item => (
+            <button
+              key={item.key}
+              onClick={() => setActiveTab(item.key)}
+              style={menuItemStyle(activeTab === item.key, mainColor)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+      </aside>
 
-        {/* [탭 2] 테이블 */}
-        {activeTab === 'tables' && (
-          <div style={{ width: '100%', maxWidth: '500px' }}>
-            <div style={{ ...sectionHeader, marginBottom: '20px' }}>
-              <h3 style={{ margin: 0, fontSize: '1.1rem' }}>🪑 테이블 설정</h3>
-              <button
-                onClick={() => setGroupedTables([...groupedTables, { originName: null, tableName: '', minCapacity: 1, maxCapacity: 4, count: 1 }])}
-                style={{ ...addBtnStyle, fontSize: '0.75rem', padding: '6px 14px' }}
-              >
-                + 새 타입 추가
-              </button>
-            </div>
-
-            <div style={{
-              display: 'flex',
-              gap: '10px',
-              padding: '0 5px 10px',
-              color: '#999',
-              fontSize: '0.75rem',
-              fontWeight: 'bold',
-              borderBottom: '2px solid #f5f5f5'
-            }}>
-              <span style={{ width: '160px' }}>테이블 명칭</span>
-              <span style={{ width: '50px', textAlign: 'center' }}>최소</span>
-              <span style={{ width: '50px', textAlign: 'center' }}>최대</span>
-              <span style={{ width: '50px', textAlign: 'center' }}>수량</span>
-              <span style={{ width: '80px', textAlign: 'center' }}>관리</span>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
-              {groupedTables.map((g, idx) => (
-                <div key={idx} style={{
-                  display: 'flex',
-                  gap: '10px',
-                  alignItems: 'center',
-                  padding: '4px 0'
-                }}>
-                  <input
-                    style={{ ...compactInput, width: '160px', fontSize: '0.85rem' }}
-                    placeholder="예: 창가 2인석"
-                    value={g.tableName || ''}
-                    onChange={e => handleTableUpdate(idx, 'tableName', e.target.value)}
-                  />
-                  <input
-                    type="number"
-                    style={{ ...compactInput, width: '50px', textAlign: 'center' }}
-                    value={g.minCapacity}
-                    onChange={e => handleTableUpdate(idx, 'minCapacity', e.target.value)}
-                  />
-                  <input
-                    type="number"
-                    style={{ ...compactInput, width: '50px', textAlign: 'center' }}
-                    value={g.maxCapacity}
-                    onChange={e => handleTableUpdate(idx, 'maxCapacity', e.target.value)}
-                  />
-                  <input
-                    type="number"
-                    style={{ ...compactInput, width: '50px', textAlign: 'center', fontWeight: 'bold', color: '#1890ff' }}
-                    value={g.count}
-                    onChange={e => handleTableUpdate(idx, 'count', e.target.value)}
-                  />
-                  <div style={{ width: '80px', display: 'flex', gap: '6px', alignItems: 'center' }}>
-                      <button
-                        onClick={() => saveTableChanges(g)}
-                        style={{ ...saveBtnStyle, padding: '6px 0', fontSize: '0.75rem', width: '50px' }}
-                      >
-                        저장
-                      </button>
-                      <button
-                        onClick={() => { if(window.confirm('삭제하시겠습니까?')) { const u = [...groupedTables]; u[idx].count = 0; saveTableChanges(u[idx]); }}}
-                        style={{ background: 'none', border: 'none', color: '#ff4d4f', cursor: 'pointer', fontSize: '1rem', padding: '0 5px', display: 'flex', alignItems: 'center' }}
-                        title="삭제"
-                      >
-                        🗑️
-                      </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* [탭 3] 영업시간 */}
-        {activeTab === 'schedules' && (
-          <div style={{ width: '100%' }}>
-            <div style={sectionHeader}><h3>요일별 영업 설정</h3></div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {days.map(day => {
-                    const config = dayConfigs[day.key];
-                    return (
-                        <div key={day.key} style={{ ...tableRowCard, flexDirection: 'column', alignItems: 'stretch', padding: '20px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f0f0f0', paddingBottom: '12px', marginBottom: '15px' }}>
-                                <b style={{ fontSize: '1.1rem', color: '#333' }}>{day.label}요일</b>
-                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                    <label style={{ fontSize: '0.9rem', cursor: 'pointer' }}>
-                                        <input type="checkbox" checked={config.isClosed} onChange={e => handleConfigChange(day.key, 'isClosed', e.target.checked)} /> 정기 휴무
-                                    </label>
-                                    <button onClick={() => saveSingleDaySchedule(day.key)} style={{...saveBtnStyle, padding: '6px 16px', fontSize: '0.85rem'}}>설정 저장</button>
-                                </div>
-                            </div>
-
-                            {!config.isClosed && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                    <div>
-                                        <label style={labelStyle}>영업 시간 (Open ~ Close)</label>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <input type="time" style={{...compactInput, width: '140px'}} value={config.openTime} onChange={e => handleConfigChange(day.key, 'openTime', e.target.value)} />
-                                            <span style={{ color: '#ccc' }}>~</span>
-                                            <input type="time" style={{...compactInput, width: '140px'}} value={config.closeTime} onChange={e => handleConfigChange(day.key, 'closeTime', e.target.value)} />
-                                        </div>
-                                    </div>
-                                    <div style={{ background: '#fcfcfc', padding: '15px', borderRadius: '8px', border: '1px dashed #eee' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                                            <label style={{...labelStyle, margin: 0}}>☕ 브레이크 타임</label>
-                                            <button onClick={() => addBreak(day.key)} style={subBtnStyle}>+ 시간 추가</button>
-                                        </div>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                            {config.breaks.length > 0 ? config.breaks.map((brk, bIdx) => (
-                                                <div key={bIdx} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                                    <input type="time" style={{...compactInput, width: '130px'}} value={brk.startTime} onChange={e => handleBreakChange(day.key, bIdx, 'startTime', e.target.value)} />
-                                                    <span style={{ color: '#ddd' }}>-</span>
-                                                    <input type="time" style={{...compactInput, width: '130px'}} value={brk.endTime} onChange={e => handleBreakChange(day.key, bIdx, 'endTime', e.target.value)} />
-                                                    <button onClick={() => { const updated = { ...dayConfigs[day.key] }; updated.breaks.splice(bIdx, 1); setDayConfigs({ ...dayConfigs, [day.key]: updated }); }}
-                                                        style={{ border: 'none', background: 'none', color: '#ff4d4f', cursor: 'pointer', fontSize: '12px' }}>삭제</button>
-                                                </div>
-                                            )) : <div style={{ fontSize: '0.8rem', color: '#bbb' }}>추가된 브레이크 타임이 없습니다.</div>}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
-          </div>
-        )}
-
-        {/* [탭 4] 정보 */}
-        {activeTab === 'info' && (
-          <div style={{ display: 'grid', gap: '30px', width: '100%' }}>
-            <section style={{ width: '100%' }}>
-                <h4 style={{ margin: '0 0 15px', textAlign: 'left' }}>🏷️ 매장 운영 상태</h4>
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', width: '100%' }}>
-                    {storeStatuses.map(s => (
-                        <button key={s.key} onClick={() => handleUpdateStoreStatus(s.key)}
-                            style={{
-                              ...actionBtn(storeDetail.status === s.key ? s.color : '#eee', storeDetail.status === s.key ? '#fff' : '#666'),
-                              flex: 1, maxWidth: '160px', height: '45px', fontWeight: 'bold', fontSize: '0.8rem', whiteSpace: 'nowrap', padding: '0 5px', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                            }}>
-                            {s.label}
-                        </button>
-                    ))}
-                </div>
-            </section>
-
-            <section style={{ display: 'grid', gap: '15px' }}>
-                <h4 style={{ margin: '0' }}>📝 기본 정보 수정</h4>
-                <div>
-                  <label style={labelStyle}>매장 상호명</label>
-                  <input style={{...compactInput, width: '100%', boxSizing: 'border-box'}} value={storeDetail.name || ''} onChange={e => setStoreDetail({...storeDetail, name: e.target.value})} />
-                </div>
-                <div>
-                    <label style={labelStyle}>매장 카테고리</label>
-                    <select
-                      style={{...compactInput, width: '100%', boxSizing: 'border-box', background: '#fff'}}
-                      value={storeDetail.category || 'KOREAN'}
-                      onChange={e => setStoreDetail({...storeDetail, category: e.target.value})}
-                    >
-                        {categoryOptions.map(option => (<option key={option.key} value={option.key}>{option.label}</option>))}
-                    </select>
-                </div>
-                <div>
-                  <label style={labelStyle}>대표 연락처</label>
-                  <input style={{...compactInput, width: '100%', boxSizing: 'border-box'}} value={storeDetail.phone || ''} onChange={e => setStoreDetail({...storeDetail, phone: e.target.value})} />
-                </div>
-                {/* [탭 4] 정보 섹션 내부의 위치 수정 부분 */}
-                <div>
-                  <label style={labelStyle}>매장 위치 주소</label>
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                    <input
-                      style={{ ...compactInput, width: '100px', background: '#f5f5f5' }}
-                      value={storeDetail.zipcode || ''}
-                      readOnly
-                      placeholder="우편번호"
-                    />
-                    <input
-                      style={{ ...compactInput, flex: 1, background: '#f5f5f5' }}
-                      value={storeDetail.address || ''}
-                      readOnly
-                      placeholder="주소 찾기를 이용해주세요"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setIsPostcodeOpen(!isPostcodeOpen)}
-                      style={{ ...subBtnStyle, whiteSpace: 'nowrap' }}
-                    >
-                      주소 검색
-                    </button>
-                  </div>
-
-                  {/* 👈 상세 주소 입력 필드 추가 */}
-                  <input
-                    style={{ ...compactInput, width: '100%', boxSizing: 'border-box', marginTop: '5px' }}
-                    value={storeDetail.detailAddress || ''}
-                    onChange={e => setStoreDetail({ ...storeDetail, detailAddress: e.target.value })}
-                    placeholder="상세 주소를 입력하세요 (동, 호수 등)"
-                  />
-
-                  {isPostcodeOpen && (
-                    <div style={{
-                      border: '1px solid #ddd',
-                      marginTop: '10px',
-                      position: 'relative',
-                      zIndex: 100,
-                      borderRadius: '8px',
-                      overflow: 'hidden'
-                    }}>
-                      <DaumPostcode onComplete={handleComplete} />
-                      <button
-                        onClick={() => setIsPostcodeOpen(false)}
-                        style={{ width: '100%', padding: '10px', background: '#eee', border: 'none', cursor: 'pointer' }}
-                      >
-                        닫기
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <button onClick={handleUpdateStoreInfo} style={{...saveBtnStyle, padding: '15px', width: '100%', marginTop: '10px'}}>기본 정보 업데이트</button>
-            </section>
-          </div>
-        )}
-      </div>
+      {/* 오른쪽: 메인 콘텐츠 영역 */}
+      <main style={contentAreaStyle}>
+        <header style={contentHeader}>
+          <h2 style={contentTitle}>
+            {menuItems.find(i => i.key === activeTab)?.label}
+          </h2>
+          <div style={titleUnderline(mainColor)} />
+        </header>
+        <div style={tabContentWrapper}>
+          {selectedStore && (
+            <>
+              {activeTab === 'reservations' && <ReservationTab storeId={selectedStore.id} />}
+              {activeTab === 'tables' && <TableTab storeId={selectedStore.id} />}
+              {activeTab === 'schedules' && <ScheduleTab storeId={selectedStore.id} />}
+              {activeTab === 'info' && (
+                <StoreInfoTab
+                  storeId={selectedStore.id}
+                  onStoreStatusUpdate={handleStoreStatusUpdate}
+                />
+              )}
+            </>
+          )}
+        </div>
+      </main>
     </div>
   );
 };
 
-// --- 스타일링 (변경 없음) ---
-const containerStyle = { maxWidth: '850px', margin: '30px auto', padding: '0 20px', fontFamily: "'Pretendard', sans-serif" };
-const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' };
-const selectStyle = { padding: '8px 12px', borderRadius: '8px', border: '1px solid #ddd', outline: 'none' };
-const tabContainerStyle = { display: 'flex', gap: '8px', marginBottom: '-1px' };
-const tabBtnStyle = (active) => ({ padding: '12px 24px', cursor: 'pointer', border: '1px solid #eee', borderBottom: active ? '2px solid #1890ff' : '1px solid #eee', background: active ? '#fff' : '#f9f9f9', color: active ? '#1890ff' : '#666', fontWeight: active ? 'bold' : 'normal', borderRadius: '8px 8px 0 0', outline: 'none' });
-const contentBoxStyle = { background: '#fff', border: '1px solid #eee', padding: '30px', borderRadius: '0 12px 12px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', minHeight: '600px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' };
-const sectionHeader = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', width: '100%' };
-const tableRowCard = { display: 'flex', gap: '15px', padding: '15px', background: '#fff', border: '1px solid #f0f0f0', borderRadius: '8px', marginBottom: '10px', alignItems: 'center', width: '100%', boxSizing: 'border-box' };
-const compactInput = { padding: '8px 12px', border: '1px solid #e0e0e0', borderRadius: '6px', outline: 'none', fontSize: '0.9rem' };
-const labelStyle = { display: 'block', fontSize: '0.85rem', color: '#666', marginBottom: '8px', fontWeight: 'bold' };
-const addBtnStyle = { padding: '8px 16px', background: '#e6f7ff', color: '#1890ff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
-const saveBtnStyle = { background: '#1890ff', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
-const subBtnStyle = { padding: '5px 12px', background: '#1890ff', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' };
-const actionBtn = (bgColor, textColor = '#fff') => ({ padding: '8px 16px', background: bgColor, color: textColor, border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' });
-const filterToggleBtnStyle = { padding: '8px 16px', background: '#fff', border: '1px solid #d9d9d9', borderRadius: '6px', cursor: 'pointer' };
-const filterLayerStyle = { position: 'absolute', top: '70px', left: '0', zIndex: 100, width: '280px', background: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.15)', border: '1px solid #eee' };
-const filterLabelStyle = { display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '8px', color: '#888' };
-const statusChipStyle = (active, color) => ({ padding: '4px 10px', borderRadius: '15px', border: `1px solid ${active ? color : '#eee'}`, background: active ? color : '#fff', color: active ? '#fff' : '#888', cursor: 'pointer', fontSize: '11px' });
-const applyFilterBtnStyle = { width: '100%', padding: '10px', background: '#333', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', marginTop: '10px' };
-const tableStyle = { width: '100%', borderCollapse: 'separate', borderSpacing: '0' };
-const thStyle = { padding: '12px 15px', textAlign: 'left', fontSize: '0.85rem', fontWeight: '600', color: '#666', borderBottom: '2px solid #f0f0f0' };
-const tdStyle = { padding: '15px', borderBottom: '1px solid #f0f0f0', fontSize: '0.9rem' };
-const trStyle = { transition: '0.2s' };
-const statusBadge = (s) => {
-  const colors = { VISITED: '#1890ff', NO_SHOW: '#fa8c16', REJECTED: '#f5222d', PENDING: '#faad14', CONFIRMED: '#52c41a', CANCELED: '#999' };
-  const c = colors[s] || '#999';
-  return { padding: '4px 10px', borderRadius: '20px', background: c + '15', color: c, fontSize: '0.75rem', fontWeight: 'bold' };
-};
-const centerMsgStyle = { textAlign: 'center', marginTop: '100px', color: '#999' };
+/* --- 스타일 정의 --- */
+const pageWrapper = { display: 'flex', width: '96%', maxWidth: '1600px', margin: '40px auto', gap: '30px', alignItems: 'flex-start' };
+const sidebarStyle = { width: '280px', background: '#fff', borderRadius: '24px', padding: '40px 20px', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', border: '1px solid #f0f0f0' };
+const storeSummary = { textAlign: 'center', marginBottom: '30px', paddingBottom: '30px', borderBottom: '1px solid #f5f5f5' };
+const storeSelectBox = { width: '100%', padding: '10px', borderRadius: '12px', border: '1px solid #eee', outline: 'none', fontWeight: 'bold', cursor: 'pointer' };
+const menuList = { display: 'flex', flexDirection: 'column', gap: '10px' };
+const menuItemStyle = (active, color) => ({ width: '100%', padding: '16px 22px', border: 'none', borderRadius: '16px', background: active ? '#FFF0EA' : 'transparent', color: active ? color : '#666', textAlign: 'left', fontSize: '16px', fontWeight: active ? '800' : '600', cursor: 'pointer', transition: 'all 0.2s ease' });
+const contentAreaStyle = { flex: 1, background: '#fff', borderRadius: '24px', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', border: '1px solid #f0f0f0' };
+const contentHeader = { padding: '40px 50px 20px' };
+const contentTitle = { fontSize: '28px', margin: 0, fontWeight: '900' };
+const titleUnderline = (color) => ({ width: '40px', height: '5px', background: color, marginTop: '10px', borderRadius: '10px' });
+const tabContentWrapper = { padding: '30px 50px 50px' };
 
 export default MyStore;

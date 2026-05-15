@@ -1,255 +1,192 @@
 import React, { useState } from 'react';
 import api from '../api/api';
 import { useNavigate } from 'react-router-dom';
+import Swal from 'sweetalert2'; // 👈 SweetAlert2 임포트
 
-function Signup() {
+const Signup = () => {
   const navigate = useNavigate();
+  const mainColor = "#F0602A"; // 주황
+  const skyPointColor = "#7DB3D3"; // 하늘
 
-  // 폼 데이터 상태
   const [formData, setFormData] = useState({
     email: '',
     nickname: '',
     password: ''
   });
 
-  // 이메일 중복 체크 여부
   const [isEmailChecked, setIsEmailChecked] = useState(false);
 
-  // 입력값 변경 시 핸들러
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
     if (name === 'email') setIsEmailChecked(false);
   };
 
-  // 1. 이메일 중복 체크 핸들러
+  // 이메일 중복 확인 (Swal 적용)
   const handleCheckEmail = () => {
-    if (!formData.email) return alert("이메일을 입력해주세요.");
+    if (!formData.email) {
+      return Swal.fire({
+        icon: 'warning',
+        title: '이메일 입력',
+        text: '중복 확인을 위해 이메일을 먼저 입력해주세요.',
+        confirmButtonColor: skyPointColor
+      });
+    }
 
     api.get(`/users/check-email?email=${formData.email}`)
       .then(res => {
         if (res.data === false) {
-          alert("사용 가능한 이메일입니다.");
+          Swal.fire({
+            icon: 'success',
+            title: '사용 가능',
+            text: '사용 가능한 이메일입니다.',
+            confirmButtonColor: skyPointColor
+          });
           setIsEmailChecked(true);
         } else {
-          alert("이미 사용 중인 이메일입니다.");
           setIsEmailChecked(false);
         }
+      })
+      .catch(() => {
       });
-      // .catch는 api.js 인터셉터가 처리함
   };
 
-  // 2. 가입 제출 핸들러
+  // 회원가입 제출 (Swal 적용)
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!isEmailChecked) return alert("이메일 중복 체크를 먼저 해주세요.");
+
+    if (!isEmailChecked) {
+      return Swal.fire({
+        icon: 'warning',
+        title: '중복 확인 필수',
+        text: '이메일 중복 체크를 먼저 진행해주세요.',
+        confirmButtonColor: mainColor
+      });
+    }
 
     api.post("/users/signup", formData)
-      .then(() => {
-        alert("회원가입 완료! 🎉");
+      .then(async () => {
+        await Swal.fire({
+          icon: 'success',
+          title: '가입을 환영합니다! 🎉',
+          text: '회원가입이 완료되었습니다. 로그인을 진행해주세요.',
+          confirmButtonColor: mainColor,
+          allowOutsideClick: false
+        });
         navigate("/login");
+      })
+      .catch(err => {
+        // 인터셉터에서 이미 에러를 띄우겠지만, 추가적인 비즈니스 로직 필요 시 작성
+        console.error(err);
       });
-      // .catch는 api.js 인터셉터가 처리함
   };
 
   return (
     <div style={pageContainer}>
       <div style={signupCard}>
-        <h2 style={titleStyle}>회원가입</h2>
-        <p style={subTitleStyle}>함께해서 반가워요! 정보를 입력해주세요.</p>
+
+        {/* 🎨 로고 섹션 */}
+        <div style={logoContainer} onClick={() => navigate('/')}>
+          <img
+            src="/images/logo2.png"
+            alt="로고"
+            style={logoImageStyle}
+          />
+        </div>
+
+        <header style={headerStyle}>
+          <h2 style={titleStyle}>회원가입</h2>
+          <p style={subTitleStyle}>서비스 이용을 위해 회원가입이 필요합니다.</p>
+        </header>
 
         <form onSubmit={handleSubmit} style={formStyle}>
-          {/* 이메일 입력 섹션 */}
+          {/* 이메일 섹션 */}
           <div style={inputGroup}>
-            <label style={labelStyle}>이메일</label>
+            <label style={labelStyle}>이메일 주소</label>
             <div style={rowStyle}>
               <input
                 name="email"
-                placeholder="example@mail.com" // DTO의 @Email 참고
+                type="email"
+                placeholder="example@mail.com"
                 onChange={handleChange}
                 value={formData.email}
                 style={inputWithBtnStyle}
+                required
               />
               <button
                 type="button"
                 onClick={handleCheckEmail}
-                style={isEmailChecked ? checkedBtnStyle : checkBtnStyle}
+                style={isEmailChecked ? checkedBtnStyle(skyPointColor) : checkBtnStyle(skyPointColor)}
               >
-                {isEmailChecked ? '확인됨' : '중복확인'}
+                {isEmailChecked ? '확인 완료' : '중복 확인'}
               </button>
             </div>
           </div>
 
-          {/* 닉네임 입력 섹션 */}
+          {/* 닉네임 섹션 */}
           <div style={inputGroup}>
             <label style={labelStyle}>닉네임</label>
             <input
               name="nickname"
-              placeholder="2~15자 (한글, 영문, 숫자)" // DTO의 @Pattern 참고
+              placeholder="2~15자 (한글, 영문, 숫자)"
               onChange={handleChange}
               value={formData.nickname}
               style={inputStyle}
+              required
             />
           </div>
 
-          {/* 비밀번호 입력 섹션 */}
+          {/* 비밀번호 섹션 */}
           <div style={inputGroup}>
             <label style={labelStyle}>비밀번호</label>
             <input
               name="password"
               type="password"
-              placeholder="8~15자 (영문, 숫자, 특수문자 조합)" // DTO의 @Pattern 참고
+              placeholder="8~15자 (영문, 숫자, 특수문자 조합)"
               onChange={handleChange}
               value={formData.password}
               style={inputStyle}
+              required
             />
           </div>
 
           <button
             type="submit"
             disabled={!isEmailChecked}
-            style={!isEmailChecked ? disabledSubmitBtn : submitBtnStyle}
+            style={isEmailChecked ? submitBtnStyle(mainColor) : disabledSubmitBtn}
           >
             가입하기
           </button>
         </form>
 
         <div style={footerStyle}>
-          이미 계정이 있으신가요? <span onClick={() => navigate('/login')} style={linkStyle}>로그인하기</span>
+          이미 계정이 있으신가요?
+          <span onClick={() => navigate('/login')} style={linkStyle(mainColor)}>로그인하러 가기</span>
         </div>
       </div>
     </div>
   );
-}
-
-// --- Styles (동일하게 유지) ---
-const mainColor = "#F0602A";
-const skyPointColor = "#7DB3D3";
-
-const pageContainer = {
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  minHeight: '100vh',
-  backgroundColor: '#f9f9f9', // 연한 그레이 배경으로 카드 부각
-  padding: '20px'
 };
 
-const signupCard = {
-  width: '100%',
-  maxWidth: '420px',
-  backgroundColor: '#fff',
-  padding: '40px',
-  borderRadius: '20px',
-  boxShadow: '0 15px 35px rgba(0,0,0,0.08)',
-  textAlign: 'center'
-};
-
-const titleStyle = {
-  margin: '0 0 10px 0',
-  fontSize: '2rem',
-  color: mainColor, // 메인 컬러로 강조
-  fontWeight: '800'
-};
-
-const subTitleStyle = {
-  margin: '0 0 30px 0',
-  fontSize: '0.95rem',
-  color: '#777'
-};
-
-const formStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '22px'
-};
-
-const inputGroup = {
-  textAlign: 'left'
-};
-
-const labelStyle = {
-  display: 'block',
-  fontSize: '0.85rem',
-  color: '#333',
-  fontWeight: '700',
-  marginBottom: '8px',
-  paddingLeft: '4px'
-};
-
-const rowStyle = {
-  display: 'flex',
-  gap: '10px'
-};
-
-const inputStyle = {
-  width: '100%',
-  padding: '14px 18px',
-  borderRadius: '10px',
-  border: '1.5px solid #eee',
-  fontSize: '1rem',
-  boxSizing: 'border-box',
-  outline: 'none',
-  transition: 'all 0.3s ease',
-};
-
+/* --- 🎨 웹 고도화 스타일 상수 (기존 유지) --- */
+const pageContainer = { display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f8fafc', padding: '40px 20px' };
+const signupCard = { width: '100%', maxWidth: '480px', backgroundColor: '#fff', padding: '50px 45px', borderRadius: '32px', boxShadow: '0 20px 50px rgba(0,0,0,0.06)', textAlign: 'center' };
+const logoContainer = { display: 'flex', justifyContent: 'center', marginBottom: '25px', cursor: 'pointer' };
+const logoImageStyle = { height: '150px', width: 'auto', objectFit: 'contain' };
+const headerStyle = { marginBottom: '35px' };
+const titleStyle = { fontSize: '28px', fontWeight: '800', color: '#111', margin: '0 0 8px 0' };
+const subTitleStyle = { fontSize: '15px', color: '#999', margin: 0 };
+const formStyle = { display: 'flex', flexDirection: 'column', gap: '22px' };
+const inputGroup = { textAlign: 'left' };
+const labelStyle = { display: 'block', fontSize: '14px', color: '#555', fontWeight: '700', marginBottom: '8px', paddingLeft: '4px' };
+const rowStyle = { display: 'flex', gap: '10px', alignItems: 'center' };
+const inputStyle = { width: '100%', padding: '16px 18px', borderRadius: '16px', border: '2px solid #f1f3f5', fontSize: '15px', boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.2s' };
 const inputWithBtnStyle = { ...inputStyle, flex: 1 };
-
-const checkBtnStyle = {
-  padding: '0 20px',
-  backgroundColor: 'transparent',
-  border: `1.5px solid ${skyPointColor}`, // 스카이 포인트 컬러
-  color: skyPointColor,
-  borderRadius: '10px',
-  cursor: 'pointer',
-  fontSize: '0.9rem',
-  fontWeight: '600',
-  whiteSpace: 'nowrap',
-  transition: '0.3s'
-};
-
-const checkedBtnStyle = {
-  ...checkBtnStyle,
-  backgroundColor: skyPointColor,
-  color: '#fff',
-  cursor: 'default',
-  border: `1.5px solid ${skyPointColor}`
-};
-
-const submitBtnStyle = {
-  width: '100%',
-  padding: '16px',
-  backgroundColor: mainColor, // 메인 컬러
-  color: '#fff',
-  border: 'none',
-  borderRadius: '12px',
-  fontSize: '1.1rem',
-  fontWeight: 'bold',
-  cursor: 'pointer',
-  marginTop: '15px',
-  boxShadow: `0 4px 14px rgba(240, 96, 42, 0.3)`, // 메인 컬러 그림자
-  transition: 'transform 0.2s, background-color 0.2s'
-};
-
-const disabledSubmitBtn = {
-  ...submitBtnStyle,
-  backgroundColor: '#ccc',
-  boxShadow: 'none',
-  cursor: 'not-allowed'
-};
-
-const footerStyle = {
-  marginTop: '30px',
-  fontSize: '0.9rem',
-  color: '#999'
-};
-
-const linkStyle = {
-  color: mainColor,
-  cursor: 'pointer',
-  fontWeight: '700',
-  marginLeft: '8px',
-  textDecoration: 'none'
-};
+const checkBtnStyle = (color) => ({ padding: '0 18px', height: '54px', backgroundColor: '#fff', border: `2px solid ${color}`, color: color, borderRadius: '16px', cursor: 'pointer', fontSize: '14px', fontWeight: '700', whiteSpace: 'nowrap', transition: 'all 0.2s ease' });
+const checkedBtnStyle = (color) => ({ ...checkBtnStyle(color), backgroundColor: color, color: '#fff', cursor: 'default' });
+const submitBtnStyle = (color) => ({ width: '100%', padding: '18px', backgroundColor: color, color: '#fff', border: 'none', borderRadius: '18px', fontSize: '17px', fontWeight: '800', cursor: 'pointer', marginTop: '15px', boxShadow: `0 8px 20px rgba(240, 96, 42, 0.2)`, transition: 'transform 0.2s' });
+const disabledSubmitBtn = { width: '100%', padding: '18px', backgroundColor: '#e9ecef', color: '#adb5bd', border: 'none', borderRadius: '18px', fontSize: '17px', fontWeight: '800', cursor: 'not-allowed', marginTop: '15px' };
+const footerStyle = { marginTop: '35px', fontSize: '14px', color: '#999' };
+const linkStyle = (color) => ({ color: color, cursor: 'pointer', fontWeight: '800', marginLeft: '8px', textDecoration: 'underline' });
 
 export default Signup;

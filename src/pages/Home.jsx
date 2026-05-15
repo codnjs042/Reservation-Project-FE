@@ -1,51 +1,39 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/api';
 import { StoreCard } from '../components/StoreCard';
-import { List, ChevronRight, MapPin, Target, X } from 'lucide-react';
+import { Search, MapPin, Target, X, ChevronRight } from 'lucide-react';
 
-const FoodCharacterIcon = ({ type }) => {
-  const iconData = {
-    KOREAN: '🍚',
-    SNACK: '🍢',
-    CHICKEN: '🍗',
-    JAPANESE: '🍣',
-    CHINESE: '🥡',
-    WESTERN: '🍝',
-    ASIAN: '🍜',
-    FASTFOOD: '🍔',
-    BUFFET: '🍽️',
-    FUSION: '🍱'
-  };
+// --- [외부 상수 및 컴포넌트 분리] ---
+const mainColor = "#F0602A";
+const skyPointColor = "#7DB3D3";
 
-  return (
-    <div style={{
-      width: '100%',
-      height: '100%',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: '32px'
-    }}>
-      {iconData[type] || '🍴'}
-    </div>
-  );
-};
+const CATEGORY_LIST = [
+  { id: 'KOREAN', name: '한식', emoji: '🍚' }, { id: 'SNACK', name: '분식', emoji: '🍢' },
+  { id: 'CHICKEN', name: '치킨', emoji: '🍗' }, { id: 'ASIAN', name: '동양식', emoji: '🍜' },
+  { id: 'WESTERN', name: '서양식', emoji: '🍝' }, { id: 'FASTFOOD', name: '패스트푸드', emoji: '🍔' },
+  { id: 'BUFFET', name: '뷔페', emoji: '🍽️' }, { id: 'FUSION', name: '퓨전', emoji: '🍱' }
+];
+
+const CategoryItem = memo(({ cat, onClick }) => (
+  <div style={webCategoryItem} onClick={() => onClick(cat.id)}>
+    <div style={webCategoryIcon}>{cat.emoji}</div>
+    <span style={webCategoryName}>{cat.name}</span>
+  </div>
+));
 
 const Home = () => {
   const navigate = useNavigate();
   const mapContainer = useRef(null);
+  const mapInstanceRef = useRef(null);
   const markerRef = useRef(null);
   const nearMarkersRef = useRef([]);
-  const [mapInstance, setMapInstance] = useState(null);
+
   const [keyword, setKeyword] = useState("");
   const [famousStores, setFamousStores] = useState([]);
   const [isDenied, setIsDenied] = useState(false);
   const [myLocation, setMyLocation] = useState({ lat: 37.5665, lng: 126.9780, address: "서울 중구 (기본 위치)" });
   const [locLoading, setLocLoading] = useState(false);
-
-  const mainColor = "#F0602A";
-  const skyPointColor = "#7DB3D3";
 
   const [isRegionOpen, setIsRegionOpen] = useState(false);
   const [sidoList, setSidoList] = useState([]);
@@ -53,101 +41,49 @@ const Home = () => {
   const [selectedSido, setSelectedSido] = useState(null);
   const [selectedSigungu, setSelectedSigungu] = useState(null);
 
-  // 0. 구글 로그인 후 처리 (수정된 로직)
-  useEffect(() => {
-    // 이미 로그인된 상태면 더 이상 검사 안 함
-    if (localStorage.getItem("isLoggedIn") === "true") return;
-
-    // URL에서 ?login=process 가 있는지 확인
-    const params = new URLSearchParams(window.location.search);
-    const isProcessingLogin = params.get("login") === "process";
-
-    // 로그인 프로세스 중일 때만 /users/me 를 호출!
-    if (isProcessingLogin) {
-      api.get("/users/me")
-        .then(res => {
-          alert("구글 로그인 성공! 🎉");
-          localStorage.setItem("user", JSON.stringify(res.data));
-          localStorage.setItem("isLoggedIn", "true");
-
-          // 성공 후에는 URL에서 ?login=process를 지워주고 홈으로 이동
-          navigate("/", { replace: true });
-        })
-        .catch((err) => {
-          console.error("인증 실패", err);
-        });
-    }
-    // isProcessingLogin이 아니면(그냥 방문자면) 아무것도 하지 않음 -> 에러 팝업 안 뜸!
-  }, [navigate]);
-
-  // 1. 초기 로드: 유명 맛집 및 시/도 목록 (api 인스턴스 사용)
+  // 1. 초기 데이터 로드
   useEffect(() => {
     api.get(`/stores/famous`)
       .then(res => setFamousStores(res.data.slice(0, 6)))
       .catch(err => console.error("트렌딩 로드 실패", err));
 
     api.get(`/area`)
-      .then(res => {
-        if (res.data) setSidoList(res.data);
-      })
+      .then(res => { if (res.data) setSidoList(res.data); })
       .catch(err => console.error("시도 로드 실패", err));
   }, []);
 
-  // 2. 시/도 클릭 시 시군구 호출 (api 인스턴스 사용)
-  const handleSidoClick = (sido) => {
+  // 2. 지역 선택 로직
+  const handleSidoClick = useCallback((sido) => {
     setSelectedSido(sido);
     setSelectedSigungu(null);
-
     api.get(`/area`, { params: { cd: sido.cd } })
-      .then(res => {
-        if (res.data) setSigunguList(res.data);
-      })
+      .then(res => { if (res.data) setSigunguList(res.data); })
       .catch(err => console.error("시군구 로드 실패", err));
-  };
+  }, []);
+
+  const handleCategoryClick = useCallback((id) => {
+    navigate(`/stores?category=${id}`);
+  }, [navigate]);
 
   // 3. 지도 초기화
   useEffect(() => {
     if (window.kakao && window.kakao.maps) {
       window.kakao.maps.load(() => {
-        const options = { center: new window.kakao.maps.LatLng(myLocation.lat, myLocation.lng), level: 2 };
+        const options = {
+          center: new window.kakao.maps.LatLng(myLocation.lat, myLocation.lng),
+          level: 3
+        };
         const map = new window.kakao.maps.Map(mapContainer.current, options);
-        setMapInstance(map);
+        mapInstanceRef.current = map;
+        refreshLocation();
       });
     }
   }, []);
 
-  const refreshLocation = () => {
-    if (!window.kakao || !window.kakao.maps) return;
-    setLocLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setIsDenied(false);
-        const { latitude: lat, longitude: lng } = pos.coords;
-        const geocoder = new window.kakao.maps.services.Geocoder();
-        geocoder.coord2Address(lng, lat, (result, status) => {
-          if (status === window.kakao.maps.services.Status.OK) {
-            setMyLocation({ lat, lng, address: result[0].address.address_name });
-            const newPos = new window.kakao.maps.LatLng(lat, lng);
-            if (mapInstance) {
-              mapInstance.setCenter(newPos);
-              if (markerRef.current) markerRef.current.setMap(null);
-              markerRef.current = new window.kakao.maps.Marker({ position: newPos, map: mapInstance });
-              displayNearbyStores(lat, lng);
-            }
-          }
-          setLocLoading(false);
-        });
-      },
-      (err) => { setLocLoading(false); if (err.code === 1) setIsDenied(true); },
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-    );
-  };
-
-  useEffect(() => { if (mapInstance) refreshLocation(); }, [mapInstance]);
-
-  // 4. 주변 음식점 표시 (api 인스턴스 사용)
-  const displayNearbyStores = (lat, lng) => {
-    if (!mapInstance) return;
+  // 4. 주변 음식점 표시
+  const displayNearbyStores = useCallback((lat, lng) => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
     nearMarkersRef.current.forEach(item => { if (item.setMap) item.setMap(null); });
     nearMarkersRef.current = [];
 
@@ -159,101 +95,134 @@ const Home = () => {
         const newItems = [];
         res.data.forEach(store => {
           const pos = new window.kakao.maps.LatLng(store.latitude, store.longitude);
-          const marker = new window.kakao.maps.Marker({ map: mapInstance, position: pos, image: markerImage });
+          const marker = new window.kakao.maps.Marker({ map, position: pos, image: markerImage });
           const overlay = new window.kakao.maps.CustomOverlay({
             position: pos, yAnchor: 0,
-            content: `<div style="position:relative;top:5px;color:#000;font-size:15px;font-weight:900;text-align:center;text-shadow:-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff;white-space:nowrap;pointer-events:none;">${store.name}</div>`
+            content: `<div style="position:relative;top:5px;color:#000;font-size:14px;font-weight:900;text-align:center;text-shadow:-1.5px -1.5px 0 #fff, 1.5px -1.5px 0 #fff, -1.5px 1.5px 0 #fff, 1.5px 1.5px 0 #fff;white-space:nowrap;pointer-events:none;">${store.name}</div>`
           });
-          overlay.setMap(mapInstance);
+          overlay.setMap(map);
           window.kakao.maps.event.addListener(marker, 'click', () => navigate(`/stores/${store.id}`));
           newItems.push(marker, overlay);
         });
         nearMarkersRef.current = newItems;
       });
-  };
+  }, [navigate]);
 
-  const categoryList = [
-    { id: 'KOREAN', name: '한식' }, { id: 'SNACK', name: '분식' },
-    { id: 'CHICKEN', name: '치킨' }, { id: 'ASIAN', name: '동양식' },
-    { id: 'WESTERN', name: '서양식' }, { id: 'CHINESE', name: '중식' },
-    { id: 'JAPANESE', name: '일식' }, { id: 'FASTFOOD', name: '패스트푸드' },
-    { id: 'BUFFET', name: '뷔페' }, { id: 'FUSION', name: '퓨전' }
-  ];
+  // 5. 현 위치 갱신
+  const refreshLocation = useCallback(() => {
+    if (!window.kakao || !window.kakao.maps) return;
+    setLocLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setIsDenied(false);
+        const { latitude: lat, longitude: lng } = pos.coords;
+        const geocoder = new window.kakao.maps.services.Geocoder();
+        geocoder.coord2Address(lng, lat, (result, status) => {
+          if (status === window.kakao.maps.services.Status.OK) {
+            setMyLocation({ lat, lng, address: result[0].address.address_name });
+            const newPos = new window.kakao.maps.LatLng(lat, lng);
+            const map = mapInstanceRef.current;
+            if (map) {
+              map.setCenter(newPos);
+              if (markerRef.current) markerRef.current.setMap(null);
+              markerRef.current = new window.kakao.maps.Marker({ position: newPos, map });
+              displayNearbyStores(lat, lng);
+            }
+          }
+          setLocLoading(false);
+        });
+      },
+      (err) => { setLocLoading(false); if (err.code === 1) setIsDenied(true); },
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
+  }, [displayNearbyStores]);
 
   return (
-    <div style={{ background: '#F9F8F6', minHeight: '100vh', paddingBottom: '100px' }}>
-      <section style={heroSection}>
+    <div style={{ background: '#fff', minHeight: '100vh' }}>
+
+      {/* --- HERO SECTION --- */}
+      <section style={webHeroSection}>
         <div style={innerContainer}>
-          <div style={{ textAlign: 'center', marginBottom: '45px' }}>
-            <h1 style={heroTitle}>어디서 무엇을 <br /><span style={{ color: skyPointColor }}>먹을지</span> 고민될 때</h1>
-            <div style={{ marginBottom: '35px' }}>
-              <img src="/images/logo2.png" alt="로고" style={{ width: '350px', height: 'auto', display: 'block', margin: '0 auto' }} />
+          <div style={heroTextWrapper}>
+            <h1 style={webHeroTitle}>
+              어디서 무엇을 <br />
+              <span style={{ color: mainColor }}>먹을지</span> 고민될 때
+            </h1>
+            <div style={{ marginBottom: '40px' }}>
+              <img src="/images/logo2.png" alt="로고" style={webLogoStyle} />
             </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); navigate(`/stores?keyword=${keyword}`); }} style={webSearchBar}>
+              <Search color="#999" size={20} style={{ marginRight: '15px' }} />
+              <input
+                type="text"
+                placeholder="음식점, 메뉴, 지역을 검색해보세요"
+                style={webSearchInput}
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+              />
+              <button type="submit" style={{ ...webSearchBtn, background: mainColor }}>검색</button>
+            </form>
           </div>
-          <form onSubmit={(e) => { e.preventDefault(); navigate(`/stores?keyword=${keyword}`); }} style={searchBarWrapper}>
-            <input type="text" placeholder="음식점, 메뉴, 지역 검색" style={searchField} value={keyword} onChange={(e) => setKeyword(e.target.value)} />
-            <button type="submit" style={{ ...searchBtn, background: mainColor }}>검색</button>
-          </form>
         </div>
       </section>
 
       <div style={innerContainer}>
-        {/* 1. 카테고리 섹션 */}
-        <section style={categoryGridStyle}>
-          {categoryList.map(cat => (
-            <div key={cat.id} style={categoryItemStyle} onClick={() => navigate(`/stores?category=${cat.id}`)}>
-              <div style={categoryIconStyle}><FoodCharacterIcon type={cat.id} /></div>
-              <span style={categoryNameStyle}>{cat.name}</span>
-            </div>
-          ))}
+        {/* --- 1. 카테고리 (와이드 그리드) --- */}
+        <section style={webCategorySection}>
+          <div style={webCategoryGrid}>
+            {CATEGORY_LIST.map(cat => (
+              <CategoryItem key={cat.id} cat={cat} onClick={handleCategoryClick} />
+            ))}
+          </div>
         </section>
 
-        {/* 2. 지역별 탐색 섹션 */}
-        <section style={{ marginBottom: '60px' }}>
+        {/* --- 2. 지역별 탐색 (버튼 UI 업데이트) --- */}
+        <section style={{ marginBottom: '80px' }}>
           {!isRegionOpen ? (
-            <button onClick={() => setIsRegionOpen(true)} style={regionStartBtn}>
-              <MapPin size={18} style={{marginRight: '8px'}} /> 어디로 갈까요? 지역별 맛집 찾기
+            <button onClick={() => setIsRegionOpen(true)} style={webRegionStartBtn}>
+              <MapPin size={20} style={{marginRight: '10px', color: mainColor}} />
+              전국 어디로 갈까요? <span style={{color: mainColor, marginLeft: '5px'}}>지역별 맛집 찾기</span>
             </button>
           ) : (
-            <div style={modernPanelStyle}>
-              <div style={regionPanelHeader}>
-                <div>
-                  <span style={{ fontWeight: '900', fontSize: '1.2rem', color: '#333' }}>지역 선택</span>
+            <div style={webModernPanelStyle}>
+              <div style={webRegionPanelHeader}>
+                <div style={{display: 'flex', alignItems: 'center'}}>
+                  <span style={{ fontWeight: '900', fontSize: '1.3rem', color: '#333' }}>지역 선택</span>
                   {selectedSido && (
-                    <span style={selectedBadge}>
+                    <span style={webSelectedBadge}>
                       {selectedSido.name} {selectedSigungu ? `> ${selectedSigungu.name}` : ''}
                     </span>
                   )}
                 </div>
-                <button onClick={() => { setIsRegionOpen(false); setSelectedSido(null); setSelectedSigungu(null); }} style={closeBtn}><X size={24} /></button>
+                <button onClick={() => { setIsRegionOpen(false); setSelectedSido(null); setSelectedSigungu(null); }} style={webCloseBtn}><X size={24} /></button>
               </div>
 
-              <div style={selectorLayout}>
-                <div style={sideBar}>
+              <div style={webSelectorLayout}>
+                <div style={webSideBar}>
                   {sidoList.map(sido => (
                     <div
                       key={sido.cd}
                       style={{
-                        ...sideItem,
+                        ...webSideItem,
                         color: selectedSido?.cd === sido.cd ? mainColor : '#666',
-                        background: selectedSido?.cd === sido.cd ? '#FFF0EB' : 'transparent',
-                        fontWeight: selectedSido?.cd === sido.cd ? '800' : '500'
+                        background: selectedSido?.cd === sido.cd ? '#FFF5F0' : 'transparent',
                       }}
                       onClick={() => handleSidoClick(sido)}
                     >
                       {sido.name}
-                      {selectedSido?.cd === sido.cd && <div style={activeIndicator} />}
+                      {selectedSido?.cd === sido.cd && <div style={webActiveIndicator} />}
                     </div>
                   ))}
                 </div>
 
-                <div style={mainContent}>
+                <div style={webMainContent}>
                   {selectedSido ? (
-                    <div style={gridContainer}>
+                    <div style={webGridContainer}>
                       <div
                         style={{
-                          ...gridItem,
-                          backgroundColor: !selectedSigungu ? mainColor : '#f8f8f8',
+                          ...webGridItem,
+                          backgroundColor: !selectedSigungu ? mainColor : '#f5f5f5',
                           color: !selectedSigungu ? '#fff' : '#444'
                         }}
                         onClick={() => setSelectedSigungu(null)}
@@ -264,8 +233,8 @@ const Home = () => {
                         <div
                           key={sgg.cd}
                           style={{
-                            ...gridItem,
-                            backgroundColor: selectedSigungu?.cd === sgg.cd ? mainColor : '#f8f8f8',
+                            ...webGridItem,
+                            backgroundColor: selectedSigungu?.cd === sgg.cd ? mainColor : '#f5f5f5',
                             color: selectedSigungu?.cd === sgg.cd ? '#fff' : '#444'
                           }}
                           onClick={() => setSelectedSigungu(sgg)}
@@ -275,15 +244,15 @@ const Home = () => {
                       ))}
                     </div>
                   ) : (
-                    <div style={emptyMessage}>먼저 왼쪽에서 도시를 선택해주세요.</div>
+                    <div style={webEmptyMessage}>왼쪽 리스트에서 도시를 선택해주세요.</div>
                   )}
                 </div>
               </div>
 
               {selectedSido && (
-                <div style={panelFooter}>
+                <div style={webPanelFooter}>
                   <button
-                    style={{ ...confirmBtn, background: mainColor }}
+                    style={{ ...webConfirmBtn, background: mainColor }}
                     onClick={() => {
                         const finalCd = selectedSigungu ? selectedSigungu.cd : selectedSido.cd;
                         navigate(`/stores?cd=${finalCd}`);
@@ -297,40 +266,40 @@ const Home = () => {
           )}
         </section>
 
-        {/* 3. 지도 섹션 */}
-        <section style={mapWrapperStyle}>
-          <div style={mapHeaderOverlay}>
-            <div style={addressBadge}><MapPin size={16} style={{marginRight:'5px'}} /> {locLoading ? "위치 탐색 중..." : myLocation.address}</div>
-            <button onClick={refreshLocation} style={myLocBtn}><Target size={16} style={{marginRight:'5px'}} /> {locLoading ? "..." : "내 위치"}</button>
+        {/* --- 3. 지도 섹션 (와이드 레이아웃) --- */}
+        <section style={webMapWrapper}>
+          <div style={webMapHeader}>
+            <div style={webAddressBadge}><MapPin size={16} style={{marginRight:'5px', color: mainColor}} /> {locLoading ? "위치 탐색 중..." : myLocation.address}</div>
+            <button onClick={refreshLocation} style={webMyLocBtn}><Target size={16} style={{marginRight:'5px'}} /> {locLoading ? "..." : "내 위치 갱신"}</button>
           </div>
-          <div ref={mapContainer} style={{ width: '100%', height: '350px', background: '#eee' }}></div>
+          <div ref={mapContainer} style={{ width: '100%', height: '450px', background: '#eee' }}></div>
           {isDenied && (
-            <div style={mapOverlayStyle}>
-              <div style={guideBoxStyle}>
+            <div style={webMapOverlay}>
+              <div style={webGuideBox}>
                 <h4 style={{ margin: '0 0 10px 0' }}>위치 권한 차단됨</h4>
-                <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '15px' }}>권한 허용 후 새로고침 해주세요.</p>
-                <button onClick={() => window.location.reload()} style={retryBtnStyle}>새로고침</button>
+                <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '15px' }}>브라우저 설정에서 권한 허용 후 새로고침 해주세요.</p>
+                <button onClick={() => window.location.reload()} style={webRetryBtn}>새로고침</button>
               </div>
             </div>
           )}
-          <div style={{padding: '15px'}}>
-            <button style={locationBtnStyle} onClick={() => navigate(`/stores?lat=${myLocation.lat}&lng=${myLocation.lng}`)}>
-              이 근처 맛집 탐색하기 ➔
+          <div style={{padding: '20px', background: '#fff'}}>
+            <button style={{...webLocationBtn, background: skyPointColor}} onClick={() => navigate(`/stores?lat=${myLocation.lat}&lng=${myLocation.lng}`)}>
+              이 근처 맛집 전체 탐색하기 ➔
             </button>
           </div>
         </section>
 
-        {/* 4. 트렌드 맛집 섹션 */}
-        <section style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div style={famousHeader}>
-            <h2 style={{ fontSize: '1.9rem', fontWeight: '900' }}>최근 급상승 <span style={{ color: mainColor }}>트렌드 맛집</span> 🔥</h2>
-            <button style={viewAllBtn} onClick={() => navigate('/stores')}>더보기 ➔</button>
+        {/* --- 4. 트렌드 맛집 (3열 와이드 그리드) --- */}
+        <section style={{ paddingBottom: '100px' }}>
+          <div style={webFamousHeader}>
+            <h2 style={webSectionTitle}>최근 급상승 <span style={{ color: mainColor }}>트렌드 맛집</span> 🔥</h2>
+            <button style={webViewAllBtn} onClick={() => navigate('/stores')}>더보기 <ChevronRight size={18} /></button>
           </div>
-          <div style={storeGridWide}>
+          <div style={webStoreGrid}>
             {famousStores.length > 0 ? (
               famousStores.map(store => <StoreCard key={store.id} store={store} navigate={navigate} />)
             ) : (
-              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '50px', color: '#bbb' }}>데이터 로딩 중...</div>
+              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '100px', color: '#bbb' }}>데이터 로딩 중...</div>
             )}
           </div>
         </section>
@@ -339,46 +308,71 @@ const Home = () => {
   );
 };
 
-// --- [Style Guide] ---
-const innerContainer = { maxWidth: '1000px', margin: '0 auto', padding: '0 20px' };
-const heroSection = { padding: '80px 0 70px', background: 'linear-gradient(to bottom, #EFEEEC 0%, #F9F8F6 100%)' };
-const heroTitle = { fontSize: '2.6rem', fontWeight: '900', textAlign: 'center', marginBottom: '25px', lineHeight: '1.2' };
-const searchBarWrapper = { display: 'flex', background: '#fff', borderRadius: '50px', padding: '8px 8px 8px 25px', boxShadow: '0 15px 45px rgba(0,0,0,0.07)', maxWidth: '680px', margin: '0 auto' };
-const searchField = { flex: 1, border: 'none', padding: '15px 0', fontSize: '1.1rem', outline: 'none' };
-const searchBtn = { color: 'white', border: 'none', padding: '0 30px', borderRadius: '40px', fontWeight: 'bold', cursor: 'pointer' };
-const categoryGridStyle = { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '20px', marginBottom: '60px', marginTop: '40px' };
-const categoryItemStyle = { textAlign: 'center', cursor: 'pointer' };
-const categoryIconStyle = { background: '#fff', height: '90px', width: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '24px', margin: '0 auto 15px', boxShadow: '0 6px 15px rgba(0,0,0,0.04)', border: '1px solid #eee' };
-const categoryNameStyle = { fontWeight: '700', color: '#444' };
-const famousHeader = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '40px' };
-const viewAllBtn = { background: 'none', border: 'none', color: "#7DB3D3", fontWeight: '800', cursor: 'pointer', fontSize: '1.15rem' };
-const storeGridWide = { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '30px' };
-const mapWrapperStyle = { position: 'relative', background: '#fff', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 12px 40px rgba(0,0,0,0.1)', marginBottom: '80px', border: '1px solid #eee' };
-const mapHeaderOverlay = { position: 'absolute', top: '20px', left: '20px', right: '20px', display: 'flex', justifyContent: 'space-between', zIndex: 10 };
-const addressBadge = { background: 'rgba(255, 255, 255, 0.95)', padding: '10px 18px', borderRadius: '30px', fontWeight: '800', fontSize: '0.9rem', display: 'flex', alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' };
-const myLocBtn = { background: '#fff', border: 'none', padding: '10px 18px', borderRadius: '30px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', color: '#F0602A' };
-const locationBtnStyle = { width: '100%', background: '#F0602A', color: '#fff', border: 'none', padding: '15px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1.1rem' };
-const modernPanelStyle = { background: '#fff', borderRadius: '30px', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', overflow: 'hidden', border: '1px solid #eee' };
-const regionPanelHeader = { padding: '25px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
-const selectorLayout = { display: 'flex', height: '400px' };
-const sideBar = { width: '160px', background: '#F9F9F9', overflowY: 'auto', borderRight: '1px solid #eee', padding: '10px 0' };
-const sideItem = { padding: '18px 25px', cursor: 'pointer', fontSize: '1rem', position: 'relative', transition: '0.2s all' };
-const activeIndicator = { position: 'absolute', right: 0, top: '20%', height: '60%', width: '4px', background: '#F0602A', borderRadius: '4px 0 0 4px' };
-const mainContent = { flex: 1, overflowY: 'auto', padding: '25px' };
-const gridContainer = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '12px' };
-const gridItem = { padding: '12px 8px', borderRadius: '12px', textAlign: 'center', fontSize: '0.9rem', cursor: 'pointer', fontWeight: '600', transition: '0.2s' };
-const selectedBadge = { marginLeft: '15px', padding: '5px 15px', background: '#FFF0EB', color: '#F0602A', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold' };
-const emptyMessage = { height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#aaa', fontSize: '1.1rem' };
-const panelFooter = { padding: '20px', borderTop: '1px solid #eee' };
-const confirmBtn = { width: '100%', color: '#fff', border: 'none', padding: '18px', borderRadius: '15px', fontWeight: '900', fontSize: '1.1rem', cursor: 'pointer', boxShadow: '0 8px 20px rgba(240, 96, 42, 0.3)' };
-const regionStartBtn = {
-  width: '100%', padding: '22px', borderRadius: '20px', border: 'none', background: '#fff',
-  color: '#444', fontWeight: '800', fontSize: '1.15rem', cursor: 'pointer',
-  boxShadow: '0 10px 30px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: '0.3s'
+// --- [Style Objects - 웹 전용 스타일] ---
+const innerContainer = { maxWidth: '1200px', margin: '0 auto', padding: '0 20px' };
+
+const webHeroSection = {
+  padding: '100px 0 80px',
+  background: 'linear-gradient(135deg, #fdfbfb 0%, #f5f7f8 100%)',
+  borderBottom: '1px solid #f0f0f0',
+  marginBottom: '60px'
 };
-const closeBtn = { border: 'none', background: 'none', color: '#999', cursor: 'pointer' };
-const mapOverlayStyle = { position: 'absolute', top: 0, left: 0, width: '100%', height: '350px', background: 'rgba(0,0,0,0.5)', zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' };
-const guideBoxStyle = { background: 'white', padding: '25px', borderRadius: '20px', textAlign: 'center', width: '80%', maxWidth: '300px' };
-const retryBtnStyle = { background: '#F0602A', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: 'bold' };
+
+const heroTextWrapper = { textAlign: 'center', maxWidth: '800px', margin: '0 auto' };
+const webHeroTitle = { fontSize: '3.2rem', fontWeight: '900', color: '#222', lineHeight: '1.2', marginBottom: '30px' };
+const webLogoStyle = { width: '380px', height: 'auto', display: 'block', margin: '0 auto' };
+
+const webSearchBar = {
+  display: 'flex', alignItems: 'center', background: '#fff', padding: '10px 10px 10px 25px',
+  borderRadius: '100px', boxShadow: '0 20px 40px rgba(0,0,0,0.08)', border: '1px solid #eee',
+  maxWidth: '700px', margin: '0 auto'
+};
+
+const webSearchInput = { flex: 1, border: 'none', outline: 'none', fontSize: '1.15rem', padding: '10px 0' };
+const webSearchBtn = { color: '#fff', border: 'none', padding: '15px 40px', borderRadius: '100px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1.05rem' };
+
+const webCategorySection = { marginBottom: '80px' };
+const webCategoryGrid = { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' };
+const webCategoryItem = {
+  background: '#fff', border: '1px solid #f2f2f2', padding: '30px 10px', borderRadius: '24px',
+  textAlign: 'center', cursor: 'pointer', transition: 'all 0.3s ease', boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
+};
+const webCategoryIcon = { fontSize: '2.8rem', marginBottom: '12px' };
+const webCategoryName = { fontWeight: '700', color: '#444', fontSize: '1.05rem' };
+
+const webRegionStartBtn = {
+  width: '100%', padding: '30px', borderRadius: '24px', border: '1px solid #eee', background: '#fff',
+  color: '#333', fontWeight: '800', fontSize: '1.2rem', cursor: 'pointer',
+  boxShadow: '0 10px 30px rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center'
+};
+
+const webModernPanelStyle = { background: '#fff', borderRadius: '30px', boxShadow: '0 30px 70px rgba(0,0,0,0.12)', overflow: 'hidden', border: '1px solid #eee' };
+const webRegionPanelHeader = { padding: '30px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
+const webSelectorLayout = { display: 'flex', height: '450px' };
+const webSideBar = { width: '220px', background: '#fafafa', overflowY: 'auto', borderRight: '1px solid #eee' };
+const webSideItem = { padding: '20px 30px', cursor: 'pointer', fontSize: '1.05rem', fontWeight: '700', position: 'relative' };
+const webActiveIndicator = { position: 'absolute', right: 0, top: '25%', height: '50%', width: '4px', background: mainColor, borderRadius: '4px 0 0 4px' };
+const webMainContent = { flex: 1, overflowY: 'auto', padding: '35px' };
+const webGridContainer = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '15px' };
+const webGridItem = { padding: '15px', borderRadius: '15px', textAlign: 'center', fontWeight: '600', cursor: 'pointer' };
+const webSelectedBadge = { marginLeft: '20px', padding: '6px 18px', background: '#FFF5F0', color: mainColor, borderRadius: '20px', fontSize: '0.9rem', fontWeight: 'bold' };
+const webEmptyMessage = { height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '1.1rem' };
+const webPanelFooter = { padding: '25px 35px', borderTop: '1px solid #eee', background: '#fafafa' };
+const webConfirmBtn = { width: '100%', color: '#fff', border: 'none', padding: '20px', borderRadius: '18px', fontWeight: '900', fontSize: '1.15rem', cursor: 'pointer' };
+const webCloseBtn = { border: 'none', background: 'none', color: '#999', cursor: 'pointer' };
+
+const webMapWrapper = { borderRadius: '30px', maxWidth: '900px', margin: '0 auto', overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.1)', marginBottom: '100px', border: '1px solid #eee', position: 'relative' };
+const webMapHeader = { position: 'absolute', top: '25px', left: '25px', right: '25px', display: 'flex', justifyContent: 'space-between', zIndex: 10 };
+const webAddressBadge = { background: 'rgba(255, 255, 255, 0.95)', padding: '12px 22px', borderRadius: '50px', fontWeight: '800', fontSize: '0.95rem', display: 'flex', alignItems: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' };
+const webMyLocBtn = { background: '#fff', border: 'none', padding: '12px 22px', borderRadius: '50px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', color: '#444' };
+const webLocationBtn = { width: '100%', color: '#fff', border: 'none', padding: '20px', borderRadius: '18px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1.15rem' };
+const webMapOverlay = { position: 'absolute', top: 0, left: 0, width: '100%', height: '450px', background: 'rgba(0,0,0,0.4)', zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' };
+const webGuideBox = { background: 'white', padding: '30px', borderRadius: '25px', textAlign: 'center', width: '320px' };
+const webRetryBtn = { background: mainColor, color: 'white', border: 'none', padding: '12px 25px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' };
+
+const webFamousHeader = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '40px' };
+const webSectionTitle = { fontSize: '2.2rem', fontWeight: '900', color: '#222' };
+const webViewAllBtn = { background: 'none', border: 'none', color: "#777", fontWeight: '700', cursor: 'pointer', fontSize: '1.1rem', display: 'flex', alignItems: 'center' };
+const webStoreGrid = { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '30px' };
 
 export default Home;
