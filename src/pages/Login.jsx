@@ -27,28 +27,18 @@ const Login = () => {
       });
   };
 
-  // 🛠️ [추가] 구글 로그인 전용 팝업창 띄우기 함수
-  const handleGoogleLogin = () => {
+  const handleSocialLogin = (provider) => {
     const width = 500;
     const height = 650;
-    // 모니터 화면 중앙에 팝업창을 위치시키기 위한 계산
+
     const left = window.screen.width / 2 - width / 2;
     const top = window.screen.height / 2 - height / 2;
 
     window.open(
-      'http://localhost:8081/oauth2/authorization/google', // 백엔드 주소
-      'GoogleLoginPopup',                                  // 팝업창 이름
+      `http://localhost:8081/oauth2/authorization/${provider}`,
+      `${provider}LoginPopup`,
       `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,resizable=yes`
     );
-  };
-
-  const handleReadyService = (serviceName) => {
-    Swal.fire({
-      icon: 'info',
-      title: '준비 중입니다',
-      text: `${serviceName} 로그인 기능은 현재 점검 중입니다. 잠시만 기다려주세요!`,
-      confirmButtonColor: '#7DB3D3',
-    });
   };
 
   return (
@@ -74,7 +64,7 @@ const Login = () => {
             <input
               name="email"
               type="email"
-              placeholder="example@mail.com"
+              placeholder="이메일을 입력하세요"
               value={loginData.email}
               onChange={(e) => setLoginData({...loginData, email: e.target.value})}
               style={inputStyle}
@@ -113,19 +103,17 @@ const Login = () => {
           </div>
 
           <div style={socialBtnContainer}>
-
-            {/* 🛠️ [수정] 구글 로그인 버튼을 일반 <a> 태그에서 onClick 팝업 버튼으로 변경 */}
-            <button type="button" onClick={handleGoogleLogin} style={socialBtnBase}>
+            <button type="button" onClick={() => handleSocialLogin('google')} style={socialBtnBase}>
               <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google" style={socialIcon} />
               구글로 계속하기
             </button>
 
-            <button type="button" onClick={() => handleReadyService('카카오')} style={{ ...socialBtnBase, background: '#FEE500', border: 'none', color: '#3C1E1E' }}>
+            <button type="button" onClick={() => handleSocialLogin('kakao')} style={{ ...socialBtnBase, background: '#FEE500', border: 'none', color: '#3C1E1E' }}>
               <img src="https://upload.wikimedia.org/wikipedia/commons/e/e3/KakaoTalk_logo.svg" alt="Kakao" style={socialIcon} />
               카카오로 계속하기
             </button>
 
-            <button type="button" onClick={() => handleReadyService('네이버')} style={{ ...socialBtnBase, background: '#03C75A', border: 'none', color: '#fff' }}>
+            <button type="button" onClick={() => handleSocialLogin('naver')} style={{ ...socialBtnBase, background: '#03C75A', border: 'none', color: '#fff' }}>
               <span style={{ fontWeight: '900', marginRight: '12px', fontSize: '18px', fontFamily: 'serif' }}>N</span>
               네이버로 계속하기
             </button>
@@ -136,7 +124,6 @@ const Login = () => {
   );
 }
 
-/* --- 스타일 상수는 기존과 100% 동일하므로 생략 --- */
 const pageContainer = { display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f8fafc', padding: '40px 20px' };
 const loginCard = { width: '100%', maxWidth: '480px', backgroundColor: '#fff', padding: '50px 40px', borderRadius: '32px', boxShadow: '0 20px 50px rgba(0,0,0,0.06)', textAlign: 'center' };
 const logoContainer = { display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '30px', cursor: 'pointer' };
