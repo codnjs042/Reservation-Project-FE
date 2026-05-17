@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import api from '../api/api';
 import { useNavigate } from 'react-router-dom';
-import Swal from 'sweetalert2'; // 👈 SweetAlert2 임포트
+import Swal from 'sweetalert2';
 import { jwtDecode } from 'jwt-decode';
 
 const Login = () => {
   const navigate = useNavigate();
-  const mainColor = "#F0602A"; // 서비스 메인 컬러 (주황)
+  const mainColor = "#F0602A";
 
   const [loginData, setLoginData] = useState({ email: '', password: '' });
 
@@ -27,7 +27,21 @@ const Login = () => {
       });
   };
 
-  // 준비 중인 서비스 전용 알림
+  // 🛠️ [추가] 구글 로그인 전용 팝업창 띄우기 함수
+  const handleGoogleLogin = () => {
+    const width = 500;
+    const height = 650;
+    // 모니터 화면 중앙에 팝업창을 위치시키기 위한 계산
+    const left = window.screen.width / 2 - width / 2;
+    const top = window.screen.height / 2 - height / 2;
+
+    window.open(
+      'http://localhost:8081/oauth2/authorization/google', // 백엔드 주소
+      'GoogleLoginPopup',                                  // 팝업창 이름
+      `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,resizable=yes`
+    );
+  };
+
   const handleReadyService = (serviceName) => {
     Swal.fire({
       icon: 'info',
@@ -41,7 +55,6 @@ const Login = () => {
     <div style={pageContainer}>
       <div style={loginCard}>
 
-        {/* 🎨 로고 섹션 */}
         <div style={logoContainer} onClick={() => navigate('/')}>
           <img
             src="/images/logo2.png"
@@ -92,7 +105,6 @@ const Login = () => {
           <span onClick={() => navigate('/signup')} style={linkStyle(mainColor)}>회원가입 하기</span>
         </div>
 
-        {/* --- 소셜 로그인 영역 --- */}
         <div style={socialSectionStyle}>
           <div style={dividerContainer}>
             <div style={dividerLine}></div>
@@ -101,19 +113,18 @@ const Login = () => {
           </div>
 
           <div style={socialBtnContainer}>
-            {/* 구글 로그인 */}
-            <a href="http://localhost:8081/oauth2/authorization/google" style={socialBtnBase}>
+
+            {/* 🛠️ [수정] 구글 로그인 버튼을 일반 <a> 태그에서 onClick 팝업 버튼으로 변경 */}
+            <button type="button" onClick={handleGoogleLogin} style={socialBtnBase}>
               <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google" style={socialIcon} />
               구글로 계속하기
-            </a>
+            </button>
 
-            {/* 카카오 로그인 */}
             <button type="button" onClick={() => handleReadyService('카카오')} style={{ ...socialBtnBase, background: '#FEE500', border: 'none', color: '#3C1E1E' }}>
               <img src="https://upload.wikimedia.org/wikipedia/commons/e/e3/KakaoTalk_logo.svg" alt="Kakao" style={socialIcon} />
               카카오로 계속하기
             </button>
 
-            {/* 네이버 로그인 */}
             <button type="button" onClick={() => handleReadyService('네이버')} style={{ ...socialBtnBase, background: '#03C75A', border: 'none', color: '#fff' }}>
               <span style={{ fontWeight: '900', marginRight: '12px', fontSize: '18px', fontFamily: 'serif' }}>N</span>
               네이버로 계속하기
@@ -125,7 +136,7 @@ const Login = () => {
   );
 }
 
-/* --- 🎨 스타일 상수는 동일 (유지) --- */
+/* --- 스타일 상수는 기존과 100% 동일하므로 생략 --- */
 const pageContainer = { display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f8fafc', padding: '40px 20px' };
 const loginCard = { width: '100%', maxWidth: '480px', backgroundColor: '#fff', padding: '50px 40px', borderRadius: '32px', boxShadow: '0 20px 50px rgba(0,0,0,0.06)', textAlign: 'center' };
 const logoContainer = { display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '30px', cursor: 'pointer' };
