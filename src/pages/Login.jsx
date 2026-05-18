@@ -45,7 +45,7 @@ const Login = () => {
     <div style={pageContainer}>
       <div style={loginCard}>
 
-        <div style={logoContainer} onClick={() => navigate('/')}>
+        <div style={logoContainer}>
           <img
             src="/images/logo2.png"
             alt="로고"
@@ -104,7 +104,7 @@ const Login = () => {
 
           <div style={socialBtnContainer}>
             <button type="button" onClick={() => handleSocialLogin('google')} style={socialBtnBase}>
-              <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google" style={socialIcon} />
+              <img src="https://www.vectorlogo.zone/logos/google/google-icon.svg" alt="Google" style={socialIcon} />
               구글로 계속하기
             </button>
 

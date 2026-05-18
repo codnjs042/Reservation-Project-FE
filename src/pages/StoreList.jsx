@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import api from '../api/api';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { StoreCard } from '../components/StoreCard';
-import { Search, Home as HomeIcon, Filter, RefreshCcw } from 'lucide-react';
+import { Home as HomeIcon, RefreshCcw } from 'lucide-react'; // 사용 안 하는 Filter 아이콘 제거
 
 const mainColor = "#F0602A";
-const skyPointColor = "#7DB3D3";
 
 const StoreList = () => {
   const [stores, setStores] = useState([]);
@@ -50,7 +49,8 @@ const StoreList = () => {
 
       <div style={{ ...webInnerContainer, ...contentLayout }}>
 
-        {/* 2. 좌측 사이드바 필터 (웹스러운 구조의 핵심) */}
+        {/* 2. 좌측 사이드바 필터 (아래 영역을 통째로 주석 처리하여 화면에서 숨김) */}
+        {/*
         <aside style={sideFilter}>
           <div style={filterGroup}>
             <h4 style={filterTitle}><Filter size={16} /> 정렬 기준</h4>
@@ -75,6 +75,7 @@ const StoreList = () => {
             <button style={adBtn}>랜덤 추천 ✨</button>
           </div>
         </aside>
+        */}
 
         {/* 3. 메인 리스트 영역 */}
         <main style={mainContent}>
@@ -110,53 +111,35 @@ const StoreList = () => {
 };
 
 // --- [Web Styled Objects] ---
-
 const pageBackground = { background: '#fcfcfc', minHeight: '100vh', paddingBottom: '100px' };
 const webInnerContainer = { maxWidth: '1200px', margin: '0 auto', padding: '0 20px' };
-
 const headerSection = { background: '#fff', borderBottom: '1px solid #eee', padding: '30px 0' };
 const breadcrumb = { display: 'flex', alignItems: 'center', gap: '8px', color: '#888', fontSize: '0.85rem', marginBottom: '15px' };
 const pointer = { cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' };
 const separator = { color: '#ddd' };
 const currentPath = { color: '#333', fontWeight: '600' };
-
 const titleWrapper = { display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
 const webTitle = { fontSize: '1.8rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '10px' };
 const countBadge = { background: '#f0f0f0', color: '#666', fontSize: '1rem', padding: '4px 12px', borderRadius: '20px', fontWeight: '600' };
 const resetBtn = { background: 'none', border: '1px solid #ddd', padding: '8px 15px', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#666', fontSize: '0.9rem' };
-
 const contentLayout = { display: 'flex', gap: '40px', marginTop: '40px' };
 
-// 좌측 필터바 스타일
+// 주석 처리된 사이드바 스타일들은 유지 (추후 주석 해제 시 레이아웃 붕괴 방지)
 const sideFilter = { width: '240px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '30px' };
 const filterGroup = { background: '#fff', border: '1px solid #eee', padding: '20px', borderRadius: '16px' };
 const filterTitle = { fontSize: '1rem', fontWeight: '700', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' };
 const filterList = { display: 'flex', flexDirection: 'column', gap: '12px' };
 const filterItem = { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem', color: '#555', cursor: 'pointer' };
-
 const adBox = { background: '#fff0eb', padding: '20px', borderRadius: '16px', textAlign: 'center', border: '1px dashed #F0602A' };
 const adBtn = { marginTop: '10px', width: '100%', background: mainColor, color: '#fff', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' };
 
-// 메인 영역 스타일
-const mainContent = { flex: 1 };
-const webStoreGrid = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', // 웹 환경에 따라 자동으로 카드 개수 조절
-  gap: '25px'
-};
-
+const mainContent = { flex: 1 }; // 사이드바가 가려지면서 메인 영역이 전체 너비를 채우게 됩니다.
+const webStoreGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '25px' };
 const loadingWrapper = { textAlign: 'center', padding: '100px 0', color: '#999' };
-
-const webEmptyWrapper = {
-  background: '#fff', border: '1px solid #eee', padding: '80px 0', borderRadius: '24px',
-  textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.02)'
-};
+const webEmptyWrapper = { background: '#fff', border: '1px solid #eee', padding: '80px 0', borderRadius: '24px', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.02)' };
 const emptyIcon = { fontSize: '4rem', marginBottom: '20px' };
 const emptyTitle = { fontSize: '1.5rem', fontWeight: '800', marginBottom: '10px' };
 const emptyText = { color: '#888', marginBottom: '30px' };
-const webBackBtn = {
-  background: mainColor, color: '#fff', border: 'none', padding: '15px 40px',
-  borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s'
-};
+const webBackBtn = { background: mainColor, color: '#fff', border: 'none', padding: '15px 40px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' };
 
 export default StoreList;

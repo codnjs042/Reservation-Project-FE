@@ -30,7 +30,8 @@ const TableTab = ({ storeId }) => {
               ...curr,
               count: 1,
               originalName: curr.tableName,
-              tempId: Math.random()
+              tempId: Math.random(),
+              isNew: false // 기존에 저장되어 있던 카드 표시
             });
           }
           return acc;
@@ -50,12 +51,12 @@ const TableTab = ({ storeId }) => {
       maxCapacity: 2,
       count: 1,
       originalName: '',
-      isNew: true
+      isNew: true // 새로 생성되어 저장 전인 카드 표시
     }]);
   };
 
-  // 삭제 시 확인창 추가
-  const removeCard = async (tempId, tableName) => {
+  // 삭제 시 확인창 처리 수정
+  const removeCard = async (tempId, tableName, isNew) => {
     const result = await Swal.fire({
       title: '삭제하시겠습니까?',
       text: tableName ? `[${tableName}] 설정을 목록에서 제거합니다.` : "입력 중인 설정을 제거합니다.",
@@ -68,7 +69,13 @@ const TableTab = ({ storeId }) => {
     });
 
     if (result.isConfirmed) {
-      setTableGroups(tableGroups.filter(g => g.tempId !== tempId));
+      if (isNew) {
+        // DB에 저장된 적 없는 새 양식 카드는 바로 배열에서 제거
+        setTableGroups(tableGroups.filter(g => g.tempId !== tempId));
+      } else {
+        // 기존에 있던 카드는 백엔드에 count=0을 전달하기 위해 데이터는 남기고 count만 0으로 업데이트
+        setTableGroups(prev => prev.map(g => g.tempId === tempId ? { ...g, count: 0 } : g));
+      }
       Toast.fire({ icon: 'success', title: '제거되었습니다.' });
     }
   };
@@ -78,8 +85,11 @@ const TableTab = ({ storeId }) => {
   };
 
   const saveAllChanges = async () => {
-    // 유효성 검사
-    const hasEmptyName = tableGroups.some(g => !g.tableName.trim());
+    // 유효성 검사 수정: 현재 숨겨지지 않은(삭제되지 않은, count > 0) 카드들만 이름이 비어있는지 검사
+    const hasEmptyName = tableGroups
+      .filter(g => g.count > 0)
+      .some(g => !g.tableName.trim());
+
     if (hasEmptyName) {
       return Swal.fire({
         icon: 'error',
@@ -98,6 +108,7 @@ const TableTab = ({ storeId }) => {
     });
 
     try {
+      // count가 0으로 세팅된 삭제 대상 카드들까지 모두 포함하여 DTO를 생성해 요청을 보냅니다.
       const promises = tableGroups.map(group => {
         const dto = {
           oldTableName: group.originalName,
@@ -119,10 +130,9 @@ const TableTab = ({ storeId }) => {
         confirmButtonColor: mainColor
       });
 
-      fetchAndGroupTables();
+      fetchAndGroupTables(); // 저장 후 클린한 최신 상태로 재조회
     } catch (err) {
       Swal.close();
-      // 에러 메시지는 api.js에서 처리하겠지만, 여기서도 예외 처리를 위해 남겨둠
       const msg = err.response?.data?.message || "저장 중 오류가 발생했습니다.";
       Swal.fire({ icon: 'error', title: '저장 실패', text: msg });
     }
@@ -142,40 +152,46 @@ const TableTab = ({ storeId }) => {
       </div>
 
       <div style={gridWrapper}>
-        {tableGroups.map((group) => (
-          <div key={group.tempId} style={tableCard}>
-            <button onClick={() => removeCard(group.tempId, group.tableName)} style={closeBtnStyle}>&times;</button>
+        {tableGroups.map((group) => {
+          // 중요: 사용자가 X 버튼을 눌러 count가 0이 된 기존 카드는 화면에 그리지 않습니다.
+          if (group.count === 0) return null;
 
-            <div style={inputGroup}>
-              <label style={miniLabel}>테이블 타입명</label>
-              <input
-                value={group.tableName}
-                onChange={(e) => handleFieldChange(group.tempId, 'tableName', e.target.value)}
-                style={textInputStyle} placeholder="예: 2인석"
-              />
-            </div>
+          return (
+            <div key={group.tempId} style={tableCard}>
+              {/* X버튼 클릭 시 해당 카드의 고유 식별 정보와 함께 신규 등록 카드 여부(group.isNew)를 인자로 넘깁니다. */}
+              <button onClick={() => removeCard(group.tempId, group.tableName, group.isNew)} style={closeBtnStyle}>&times;</button>
 
-            <div style={capacityRow}>
-              <div style={compactInputGroup}>
-                <label style={miniLabel}>최소</label>
-                <input type="number" value={group.minCapacity} onChange={(e) => handleFieldChange(group.tempId, 'minCapacity', e.target.value)} style={numInputStyle} />
+              <div style={inputGroup}>
+                <label style={miniLabel}>테이블 타입명</label>
+                <input
+                  value={group.tableName}
+                  onChange={(e) => handleFieldChange(group.tempId, 'tableName', e.target.value)}
+                  style={textInputStyle} placeholder="예: 2인석"
+                />
               </div>
-              <span style={{ marginTop: '22px', color: '#ccc' }}>~</span>
-              <div style={compactInputGroup}>
-                <label style={miniLabel}>최대</label>
-                <input type="number" value={group.maxCapacity} onChange={(e) => handleFieldChange(group.tempId, 'maxCapacity', e.target.value)} style={numInputStyle} />
-              </div>
-              <div style={{ flex: 1.5, marginLeft: '10px' }}>
-                <label style={miniLabel}>수량</label>
-                <div style={counterWrapper}>
-                  <button onClick={() => handleFieldChange(group.tempId, 'count', Math.max(0, group.count - 1))} style={countBtn}>-</button>
-                  <span style={countDisplay}>{group.count}</span>
-                  <button onClick={() => handleFieldChange(group.tempId, 'count', group.count + 1)} style={countBtn}>+</button>
+
+              <div style={capacityRow}>
+                <div style={compactInputGroup}>
+                  <label style={miniLabel}>최소</label>
+                  <input type="number" value={group.minCapacity} onChange={(e) => handleFieldChange(group.tempId, 'minCapacity', e.target.value)} style={numInputStyle} />
+                </div>
+                <span style={{ marginTop: '22px', color: '#ccc' }}>~</span>
+                <div style={compactInputGroup}>
+                  <label style={miniLabel}>최대</label>
+                  <input type="number" value={group.maxCapacity} onChange={(e) => handleFieldChange(group.tempId, 'maxCapacity', e.target.value)} style={numInputStyle} />
+                </div>
+                <div style={{ flex: 1.5, marginLeft: '10px' }}>
+                  <label style={miniLabel}>수량</label>
+                  <div style={counterWrapper}>
+                    <button onClick={() => handleFieldChange(group.tempId, 'count', Math.max(0, group.count - 1))} style={countBtn}>-</button>
+                    <span style={countDisplay}>{group.count}</span>
+                    <button onClick={() => handleFieldChange(group.tempId, 'count', group.count + 1)} style={countBtn}>+</button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

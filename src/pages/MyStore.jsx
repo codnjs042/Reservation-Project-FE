@@ -119,7 +119,12 @@ const MyStore = () => {
         <div style={tabContentWrapper}>
           {selectedStore && (
             <>
-              {activeTab === 'reservations' && <ReservationTab storeId={selectedStore.id} />}
+              {activeTab === 'reservations' && (
+                <ReservationTab
+                  storeId={selectedStore.id}
+                  onPolicyViolation={() => setActiveTab('info')} // ◀ 4번째 탭(info)으로 바꾼 함수를 전달!
+                />
+              )}
               {activeTab === 'tables' && <TableTab storeId={selectedStore.id} />}
               {activeTab === 'schedules' && <ScheduleTab storeId={selectedStore.id} />}
               {activeTab === 'info' && (

@@ -86,7 +86,7 @@ const Signup = () => {
       <div style={signupCard}>
 
         {/* 🎨 로고 섹션 */}
-        <div style={logoContainer} onClick={() => navigate('/')}>
+        <div style={logoContainer}>
           <img
             src="/images/logo2.png"
             alt="로고"

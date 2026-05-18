@@ -4,7 +4,7 @@ import Swal from 'sweetalert2';
 import ReservationFilter from "../ReservationFilter";
 import StatusBadge from "../StatusBadge";
 
-const ReservationTab = ({ storeId }) => {
+const ReservationTab = ({ storeId, onPolicyViolation }) => {
   const [reservations, setReservations] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
@@ -19,6 +19,7 @@ const ReservationTab = ({ storeId }) => {
     'CANCELED': { label: '취소', color: '#8c8c8c', bg: '#f5f5f5' }
   };
 
+  // ◀ 첫 진입시 실행되는 GET 요청부 수정
   const fetchData = useCallback(async () => {
     if (!storeId) return;
     const params = {
@@ -30,8 +31,30 @@ const ReservationTab = ({ storeId }) => {
     try {
       const res = await api.get(`/owners/stores/${storeId}/reservations`, { params });
       setReservations(Array.isArray(res.data) ? res.data : (res.data.content || []));
-    } catch (err) { setReservations([]); }
-  }, [storeId, filter]);
+    } catch (err) {
+      setReservations([]);
+
+      // 백엔드 에러 응답 분해
+      const errorResponse = err.response?.data;
+
+      // 화면 로드(GET) 시 가게 상태 제한 에러(STORE-003)가 발생한 경우
+      if (errorResponse && errorResponse.code === 'STORE-003') {
+        // 1. 안내 알림창 표시 및 유저가 닫을 때까지 대기
+        await Swal.fire({
+          title: '접근 제한',
+          text: errorResponse.message, // "%s 상태의 가게는 작업이 제한됩니다."
+          icon: 'warning',
+          confirmButtonColor: '#F0602A',
+          borderRadius: '15px'
+        });
+
+        // 2. 알림창 닫히면 부모 함수를 깨워서 4번째 매장 정보 탭으로 리다이렉트
+        if (typeof onPolicyViolation === 'function') {
+          onPolicyViolation();
+        }
+      }
+    }
+  }, [storeId, filter, onPolicyViolation]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -51,7 +74,16 @@ const ReservationTab = ({ storeId }) => {
         await api.patch(`/owners/stores/${storeId}/reservations`, { ids: selectedIds, status });
         fetchData();
         setSelectedIds([]);
-      } catch (err) {}
+      } catch (err) {
+        // 혹시 몰라 패치 요청 예외 핸들링도 복구해 둡니다.
+        const errorResponse = err.response?.data;
+        if (errorResponse && errorResponse.code === 'STORE-003') {
+          await Swal.fire({ title: '작업 제한', text: errorResponse.message, icon: 'warning', confirmButtonColor: '#F0602A', borderRadius: '15px' });
+          if (typeof onPolicyViolation === 'function') onPolicyViolation();
+        } else {
+          Swal.fire('에러 발생', '상태 변경 중 오류가 발생했습니다.', 'error');
+        }
+      }
     }
   };
 
@@ -61,7 +93,7 @@ const ReservationTab = ({ storeId }) => {
     borderRadius: '10px',
     background: status.bg,
     color: status.color,
-    border: 'none', // 테두리 제거
+    border: 'none',
     fontSize: '12px',
     fontWeight: 'bold',
     cursor: 'pointer',
@@ -129,24 +161,11 @@ const ReservationTab = ({ storeId }) => {
   );
 };
 
-// --- Styles (기존 유지 및 최적화) ---
+// --- Styles ---
 const dashboardWrapper = { display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px' };
 const titleArea = { display: 'flex', alignItems: 'baseline', gap: '12px' };
 const pageTitle = { fontSize: '22px', fontWeight: '800', margin: 0, color: '#111' };
 const totalCount = { fontSize: '14px', color: '#666' };
-const searchContainer = { display: 'flex', background: '#fff', border: '1px solid #eee', borderRadius: '12px', padding: '2px', alignItems: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' };
-const searchSelect = { border: 'none', background: '#f8f9fa', padding: '12px 15px', borderRadius: '10px 0 0 10px', fontSize: '13px', outline: 'none', borderRight: '1px solid #eee' };
-const searchInput = { border: 'none', flex: 1, padding: '12px 16px', fontSize: '15px', outline: 'none' };
-const filterIconBtn = (isExpanded) => ({ background: isExpanded ? '#f0f7ff' : 'transparent', color: isExpanded ? '#1890ff' : '#888', border: 'none', padding: '10px 15px', cursor: 'pointer', display: 'flex', alignItems: 'center', borderRadius: '10px' });
-const filterPanel = { background: '#fff', border: '1px solid #eee', borderRadius: '12px', padding: '20px', marginTop: '5px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' };
-const filterContent = { display: 'flex', gap: '40px' };
-const filterSection = { display: 'flex', flexDirection: 'column', gap: '8px' };
-const sectionLabel = { fontSize: '12px', fontWeight: '700', color: '#888' };
-const inputGroup = { display: 'flex', alignItems: 'center', gap: '8px' };
-const dateInput = { padding: '8px', border: '1px solid #eee', borderRadius: '8px', fontSize: '13px', outline: 'none' };
-const checkGroup = { display: 'flex', gap: '15px', flexWrap: 'wrap' };
-const checkLabel = { fontSize: '13px', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' };
-const resetTextBtn = { background: 'none', border: 'none', color: '#999', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' };
 const actionBar = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', border: '1px solid #eee', padding: '10px 20px', borderRadius: '15px', marginBottom: '5px', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' };
 const selectionInfo = { fontSize: '13px', color: '#666', fontWeight: '600' };
 const closeIconBtn = { background: 'none', border: 'none', fontSize: '14px', cursor: 'pointer', color: '#bbb' };
