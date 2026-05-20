@@ -60,7 +60,7 @@ function UserAdmin() {
         <div style={{ marginBottom: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <input
             style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px', width: '200px' }}
-            placeholder="번호/이메일/닉네임"
+            placeholder="번호/아이디/닉네임/이메일"
             onChange={e => setFilters({...filters, keyword: e.target.value})}
           />
           <select style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '6px' }} onChange={e => setFilters({...filters, loginType: e.target.value})}>
@@ -88,10 +88,12 @@ function UserAdmin() {
           <thead>
             <tr style={{ borderBottom: '2px solid #eee', textAlign: 'left', color: '#888' }}>
               <th style={{ padding: '12px' }}>ID</th>
-              <th>이메일</th>
+              <th>아이디</th>
               <th>닉네임</th>
+              <th>이메일</th>
               <th>타입</th>
               <th>권한</th>
+              <th>소셜 ID</th>
               <th>상태</th>
             </tr>
           </thead>
@@ -100,10 +102,12 @@ function UserAdmin() {
               users.map(u => (
                 <tr key={u.id} style={{ borderBottom: '1px solid #f2f2f2' }}>
                   <td style={{ padding: '15px' }}>{u.id}</td>
-                  <td>{u.email}</td>
+                  <td>{u.username}</td>
                   <td>{u.nickname}</td>
+                  <td>{u.email}</td>
                   <td>{USER_MAP.loginType[u.loginType]}</td>
                   <td>{USER_MAP.role[u.role]}</td>
+                  <td>{u.providerId}</td>
                   <td style={{ color: u.status === 'ACTIVE' ? '#2e7d32' : '#d32f2f', fontWeight: 'bold' }}>
                     {USER_MAP.status[u.status]}
                   </td>

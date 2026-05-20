@@ -80,8 +80,6 @@ const ReservationTab = ({ storeId, onPolicyViolation }) => {
         if (errorResponse && errorResponse.code === 'STORE-003') {
           await Swal.fire({ title: '작업 제한', text: errorResponse.message, icon: 'warning', confirmButtonColor: '#F0602A', borderRadius: '15px' });
           if (typeof onPolicyViolation === 'function') onPolicyViolation();
-        } else {
-          Swal.fire('에러 발생', '상태 변경 중 오류가 발생했습니다.', 'error');
         }
       }
     }

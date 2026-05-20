@@ -7,6 +7,7 @@ const ProfileTab = ({ userInfo, onUpdate }) => {
   const skyPointColor = "#7DB3D3"; // 하늘 포인트
 
   const [newNickname, setNewNickname] = useState(userInfo.nickname);
+  const [newEmail, setNewEmail] = useState(userInfo.email);
   const [isPwEditOpen, setIsPwEditOpen] = useState(false);
   const [passwordData, setPasswordData] = useState({ currentPw: '', newPw: '', confirmPw: '' });
 
@@ -21,40 +22,31 @@ const ProfileTab = ({ userInfo, onUpdate }) => {
 
   useEffect(() => {
     setNewNickname(userInfo.nickname);
-  }, [userInfo.nickname]);
+    setNewEmail(userInfo.email);
+  }, [userInfo.nickname, userInfo.email]);
 
   // 닉네임 변경 로직
   const handleNicknameUpdate = async () => {
-    if (!newNickname || newNickname.trim() === "") {
-      return Swal.fire({ icon: 'warning', title: '입력 오류', text: '변경할 닉네임을 입력해주세요.', confirmButtonColor: mainColor });
-    }
-
-    if (newNickname === userInfo.nickname) {
-      return Toast.fire({ icon: 'info', title: '현재와 동일한 닉네임입니다.' });
-    }
-
     try {
       const response = await api.patch(`/users/me/nickname`, { nickname: newNickname });
-      if (response.status === 200 || response.status === 204) {
         Toast.fire({ icon: 'success', title: '닉네임이 변경되었습니다.' });
         if (onUpdate) onUpdate();
-      }
     } catch (err) {
-      const msg = err.response?.data?.message || "형식이 올바르지 않습니다.";
-      Swal.fire({ icon: 'error', title: '변경 실패', text: msg, confirmButtonColor: '#333' });
+    }
+  };
+
+  // 이메일 변경 로직
+  const handleEmailUpdate = async () => {
+    try {
+      const response = await api.patch(`/users/me/email`, { email: newEmail });
+        Toast.fire({ icon: 'success', title: '이메일이 변경되었습니다.' });
+        if (onUpdate) onUpdate();
+    } catch (err) {
     }
   };
 
   // 비밀번호 변경 로직
   const handlePasswordUpdate = async () => {
-    if (!passwordData.currentPw || !passwordData.newPw) {
-        return Swal.fire({ icon: 'warning', title: '입력 누락', text: '모든 비밀번호 필드를 입력해주세요.', confirmButtonColor: mainColor });
-    }
-
-    if (passwordData.newPw !== passwordData.confirmPw) {
-      return Swal.fire({ icon: 'error', title: '일치 확인', text: '새 비밀번호가 서로 일치하지 않습니다.', confirmButtonColor: '#ff4d4f' });
-    }
-
     try {
       await api.patch("/users/me/password", passwordData);
 
@@ -77,7 +69,7 @@ const ProfileTab = ({ userInfo, onUpdate }) => {
       case 'KAKAO': return { label: '카카오 로그인', color: '#FEE500', textColor: '#3C1E1E' };
       case 'NAVER': return { label: '네이버 로그인', color: '#03C75A', textColor: '#fff' };
       case 'GOOGLE': return { label: '구글 로그인', color: '#fff', border: '#eee', textColor: '#757575' };
-      default: return { label: '이메일 직접 가입', color: '#f4f4f4', textColor: '#666' };
+      default: return { label: '일반 로그인', color: '#f4f4f4', textColor: '#666' };
     }
   };
 
@@ -106,12 +98,12 @@ const ProfileTab = ({ userInfo, onUpdate }) => {
           </div>
 
           <div style={infoRow}>
-            <span style={infoLabel}>로그인 이메일</span>
-            <span style={staticTextStyle}>{userInfo.email}</span>
+            <span style={infoLabel}>아이디</span>
+            <span style={staticTextStyle}>{userInfo.username}</span>
           </div>
 
           <div style={infoRow}>
-            <span style={infoLabel}>활동 닉네임</span>
+            <span style={infoLabel}>닉네임</span>
             <div style={{ display: 'flex', gap: '10px', flex: 1 }}>
               <input
                 style={inputStyle}
@@ -119,6 +111,18 @@ const ProfileTab = ({ userInfo, onUpdate }) => {
                 onChange={e => setNewNickname(e.target.value)}
               />
               <button style={pointBtnStyle(mainColor)} onClick={handleNicknameUpdate}>변경</button>
+            </div>
+          </div>
+
+          <div style={infoRow}>
+            <span style={infoLabel}>이메일</span>
+            <div style={{ display: 'flex', gap: '10px', flex: 1 }}>
+              <input
+                style={inputStyle}
+                value={newEmail}
+                onChange={e => setNewEmail(e.target.value)}
+              />
+              <button style={pointBtnStyle(mainColor)} onClick={handleEmailUpdate}>변경</button>
             </div>
           </div>
         </div>

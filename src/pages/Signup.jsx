@@ -9,45 +9,43 @@ const Signup = () => {
   const skyPointColor = "#7DB3D3"; // 하늘
 
   const [formData, setFormData] = useState({
-    email: '',
+    username: '',
     nickname: '',
+    email: '',
     password: ''
   });
 
-  const [isEmailChecked, setIsEmailChecked] = useState(false);
+  const [isUsernameChecked, setIsUsernameChecked] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
-    if (name === 'email') setIsEmailChecked(false);
+    if (name === 'username') setIsUsernameChecked(false);
   };
 
-  // 이메일 중복 확인 (Swal 적용)
-  const handleCheckEmail = () => {
-    if (!formData.email) {
+  // 아이디 중복 확인 (Swal 적용)
+  const handleCheckUsername = () => {
+    if (!formData.username) {
       return Swal.fire({
         icon: 'warning',
-        title: '이메일 입력',
-        text: '중복 확인을 위해 이메일을 먼저 입력해주세요.',
+        title: '아이디 입력',
+        text: '중복 확인을 위해 아이디를 먼저 입력해주세요.',
         confirmButtonColor: skyPointColor
       });
     }
 
-    api.get(`/users/check-email?email=${formData.email}`)
-      .then(res => {
-        if (res.data === false) {
+    api.get(`/users/check-username?username=${formData.username}`)
+      .then(() => {
           Swal.fire({
             icon: 'success',
             title: '사용 가능',
-            text: '사용 가능한 이메일입니다.',
+            text: '사용 가능한 아이디입니다.',
             confirmButtonColor: skyPointColor
           });
-          setIsEmailChecked(true);
-        } else {
-          setIsEmailChecked(false);
-        }
+          setIsUsernameChecked(true);
       })
       .catch(() => {
+          setIsUsernameChecked(false);
       });
   };
 
@@ -55,11 +53,11 @@ const Signup = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (!isEmailChecked) {
+    if (!isUsernameChecked) {
       return Swal.fire({
         icon: 'warning',
         title: '중복 확인 필수',
-        text: '이메일 중복 체크를 먼저 진행해주세요.',
+        text: '아이디 중복 체크를 먼저 진행해주세요.',
         confirmButtonColor: mainColor
       });
     }
@@ -100,25 +98,25 @@ const Signup = () => {
         </header>
 
         <form onSubmit={handleSubmit} style={formStyle}>
-          {/* 이메일 섹션 */}
+          {/* 아이디 섹션 */}
           <div style={inputGroup}>
-            <label style={labelStyle}>이메일 주소</label>
+            <label style={labelStyle}>아이디</label>
             <div style={rowStyle}>
               <input
-                name="email"
-                type="email"
-                placeholder="example@mail.com"
+                name="username"
+                type="text"
+                placeholder="8~15자 (영문, 숫자)"
                 onChange={handleChange}
-                value={formData.email}
+                value={formData.username}
                 style={inputWithBtnStyle}
                 required
               />
               <button
                 type="button"
-                onClick={handleCheckEmail}
-                style={isEmailChecked ? checkedBtnStyle(skyPointColor) : checkBtnStyle(skyPointColor)}
+                onClick={handleCheckUsername}
+                style={isUsernameChecked ? checkedBtnStyle(skyPointColor) : checkBtnStyle(skyPointColor)}
               >
-                {isEmailChecked ? '확인 완료' : '중복 확인'}
+                {isUsernameChecked ? '확인 완료' : '중복 확인'}
               </button>
             </div>
           </div>
@@ -136,6 +134,19 @@ const Signup = () => {
             />
           </div>
 
+          {/* 📬 이메일 섹션 (닉네임 밑에 새로 추가됨) */}
+          <div style={inputGroup}>
+            <label style={labelStyle}>이메일</label>
+              <input
+                name="email"
+                type="email" // 이메일 형식 자동 검증용 타입
+                placeholder="example@email.com"
+                onChange={handleChange}
+                value={formData.email}
+                style={inputStyle}
+              />
+            </div>
+
           {/* 비밀번호 섹션 */}
           <div style={inputGroup}>
             <label style={labelStyle}>비밀번호</label>
@@ -152,8 +163,8 @@ const Signup = () => {
 
           <button
             type="submit"
-            disabled={!isEmailChecked}
-            style={isEmailChecked ? submitBtnStyle(mainColor) : disabledSubmitBtn}
+            disabled={!isUsernameChecked}
+            style={isUsernameChecked ? submitBtnStyle(mainColor) : disabledSubmitBtn}
           >
             가입하기
           </button>

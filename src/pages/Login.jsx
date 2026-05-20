@@ -8,7 +8,7 @@ const Login = () => {
   const navigate = useNavigate();
   const mainColor = "#F0602A";
 
-  const [loginData, setLoginData] = useState({ email: '', password: '' });
+  const [loginData, setLoginData] = useState({ username: '', password: '' });
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -62,11 +62,11 @@ const Login = () => {
           <div style={inputGroup}>
             <label style={labelStyle}>이메일 주소</label>
             <input
-              name="email"
-              type="email"
+              name="username"
+              type="text"
               placeholder="이메일을 입력하세요"
-              value={loginData.email}
-              onChange={(e) => setLoginData({...loginData, email: e.target.value})}
+              value={loginData.username}
+              onChange={(e) => setLoginData({...loginData, username: e.target.value})}
               style={inputStyle}
               required
             />

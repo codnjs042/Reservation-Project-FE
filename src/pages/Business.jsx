@@ -49,7 +49,6 @@ const Business = () => {
         timer: 1500
       });
     } catch (err) {
-      Swal.fire('실패', '상태 변경 중 오류가 발생했습니다.', 'error');
     }
   };
 

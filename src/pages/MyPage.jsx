@@ -37,8 +37,8 @@ const MyPage = () => {
       <aside style={sidebarStyle}>
         <div style={profileSummary}>
           <div style={avatarStyle(skyPointColor)}>{userInfo.nickname[0]}</div>
-          <h3 style={userName}>{userInfo.nickname}님</h3>
-          <p style={userEmail}>{userInfo.email}</p>
+          <h3 style={userNickName}>{userInfo.nickname}님</h3>
+          <p style={userName}>{userInfo.username}</p>
         </div>
 
         <nav style={menuList}>
@@ -86,8 +86,8 @@ const pageWrapper = { display: 'flex', width: '96%', maxWidth: '1600px', margin:
 const sidebarStyle = { width: '280px', flexShrink: 0, background: '#fff', borderRadius: '24px', padding: '40px 20px', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', border: '1px solid #f0f0f0', position: 'sticky', top: '40px' };
 const profileSummary = { textAlign: 'center', marginBottom: '30px', paddingBottom: '30px', borderBottom: '1px solid #f5f5f5' };
 const avatarStyle = (color) => ({ width: '80px', height: '80px', borderRadius: '30px', background: color, color: '#fff', fontSize: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 15px', fontWeight: 'bold', boxShadow: `0 8px 20px rgba(125, 179, 211, 0.3)` });
-const userName = { fontSize: '20px', fontWeight: '800', margin: '0 0 5px 0', color: '#1a1a1a' };
-const userEmail = { fontSize: '14px', color: '#bbb', margin: 0 };
+const userNickName = { fontSize: '20px', fontWeight: '800', margin: '0 0 5px 0', color: '#1a1a1a' };
+const userName = { fontSize: '14px', color: '#bbb', margin: 0 };
 const menuList = { display: 'flex', flexDirection: 'column', gap: '10px' };
 const menuItemStyle = (active, color) => ({ width: '100%', padding: '16px 22px', border: 'none', borderRadius: '16px', background: active ? '#FFF0EA' : 'transparent', color: active ? color : '#666', textAlign: 'left', fontSize: '16px', fontWeight: active ? '800' : '600', cursor: 'pointer', transition: 'all 0.2s ease', display: 'flex', alignItems: 'center' });
 const contentAreaStyle = { flex: 1, minWidth: '900px', background: '#fff', borderRadius: '24px', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', border: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column' };
