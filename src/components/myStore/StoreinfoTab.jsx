@@ -8,7 +8,7 @@ const StoreInfoTab = ({ storeId, onStoreStatusUpdate }) => {
   const [isPostcodeOpen, setIsPostcodeOpen] = useState(false);
   const [storeDetail, setStoreDetail] = useState({
     name: '', phone: '', address: '', detailAddress: '',
-    zipcode: '', sigunguCode: '', category: 'KOREAN', status: 'READY'
+    zipCode: '', sigunguCode: '', category: 'KOREAN', status: 'READY'
   });
 
   const storeStatuses = [
@@ -52,7 +52,7 @@ const StoreInfoTab = ({ storeId, onStoreStatusUpdate }) => {
       if (data.buildingName !== '') extraAddress += (extraAddress !== '' ? `, ${data.buildingName}` : data.buildingName);
       fullAddress += (extraAddress !== '' ? ` (${extraAddress})` : '');
     }
-    setStoreDetail({ ...storeDetail, address: fullAddress, zipcode: data.zonecode, sigunguCode: data.sigunguCode });
+    setStoreDetail({ ...storeDetail, address: fullAddress, zipCode: data.zonecode, sigunguCode: data.sigunguCode });
     setIsPostcodeOpen(false);
   };
 
@@ -178,7 +178,7 @@ const StoreInfoTab = ({ storeId, onStoreStatusUpdate }) => {
         <div>
           <label style={labelStyle}>위치 주소</label>
           <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-            <input style={{...inputStyle, width: '100px', background: '#f5f5f5'}} value={storeDetail.zipcode || ''} readOnly />
+            <input style={{...inputStyle, width: '100px', background: '#f5f5f5'}} value={storeDetail.zipCode || ''} readOnly />
             <input style={{...inputStyle, flex: 1, background: '#f5f5f5'}} value={storeDetail.address || ''} readOnly />
             <button onClick={() => setIsPostcodeOpen(!isPostcodeOpen)} style={subBtnStyle}>검색</button>
           </div>

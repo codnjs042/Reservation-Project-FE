@@ -11,7 +11,7 @@ const StoreRegistration = () => {
   const [isPostcodeOpen, setIsPostcodeOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '', category: 'KOREAN', address: '', detailAddress: '',
-    zipcode: '', phone: '', ownerName: '', businessNumber: '', sigunguCode: ''
+    zipCode: '', phone: '', ownerName: '', businessNumber: '', sigunguCode: ''
   });
 
   const handleChange = (e) => {
@@ -20,7 +20,7 @@ const StoreRegistration = () => {
   };
 
   const handleComplete = (data) => {
-    setFormData(prev => ({ ...prev, address: data.address, zipcode: data.zonecode, sigunguCode: data.sigunguCode }));
+    setFormData(prev => ({ ...prev, address: data.address, zipCode: data.zonecode, sigunguCode: data.sigunguCode }));
     setIsPostcodeOpen(false);
   };
 
@@ -116,7 +116,7 @@ const StoreRegistration = () => {
             <div style={sectionBox}>
               <h3 style={secTitle}>📍 위치 정보</h3>
               <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                <input value={formData.zipcode} placeholder="우편번호" readOnly style={{...inputStyle, flex: 0.4, backgroundColor: '#f5f5f5'}} />
+                <input value={formData.zipCode} placeholder="우편번호" readOnly style={{...inputStyle, flex: 0.4, backgroundColor: '#f5f5f5'}} />
                 <button type="button" onClick={() => setIsPostcodeOpen(true)} style={addrBtn}>주소 검색</button>
               </div>
               <input value={formData.address} placeholder="기본 주소" readOnly style={{...inputStyle, marginBottom: '10px', backgroundColor: '#f5f5f5'}} />

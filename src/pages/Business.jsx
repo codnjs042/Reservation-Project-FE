@@ -8,7 +8,9 @@ const Business = () => {
   const navigate = useNavigate();
   const mainColor = "#F0602A";
   const role = localStorage.getItem("role");
+  const isAdmin = role === "ROLE_ADMIN";
   const isOwner = role === "ROLE_OWNER";
+  const accessDashboard = isAdmin || isOwner;
 
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,9 +22,9 @@ const Business = () => {
   };
 
   useEffect(() => {
-    if (isOwner) fetchStores();
+    if (accessDashboard) fetchStores();
     else setLoading(false);
-  }, [isOwner]);
+  }, [accessDashboard]);
 
   const fetchStores = async () => {
     try {
@@ -65,7 +67,7 @@ const Business = () => {
     <div style={widePageWrapper}>
       <div style={mainContainer}>
         <main style={mainSection}>
-          {isOwner ? (
+          {(accessDashboard) ? (
             <>
               {/* 상단 헤더 */}
               <header style={headerFlex}>

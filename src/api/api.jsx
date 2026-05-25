@@ -32,7 +32,7 @@ api.interceptors.response.use(
     if (status === 401) {
       const hasToken = !!localStorage.getItem("accessToken");
 
-      // 토큰이 없거나 이미 재시Q도를 했던 요청이라면 (더 이상 시도 불가)
+      // 토큰이 없거나 이미 재시도를 했던 요청이라면 (더 이상 시도 불가)
       if (!hasToken || originalRequest._retry) {
         if (window.location.pathname !== '/login') {
           window.location.href = '/login';

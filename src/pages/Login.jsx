@@ -60,11 +60,11 @@ const Login = () => {
 
         <form onSubmit={handleLogin} style={formStyle}>
           <div style={inputGroup}>
-            <label style={labelStyle}>이메일 주소</label>
+            <label style={labelStyle}>아이디</label>
             <input
               name="username"
               type="text"
-              placeholder="이메일을 입력하세요"
+              placeholder="아이디를 입력하세요"
               value={loginData.username}
               onChange={(e) => setLoginData({...loginData, username: e.target.value})}
               style={inputStyle}
