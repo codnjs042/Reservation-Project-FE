@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../api/api';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { StoreCard } from '../components/StoreCard';
@@ -9,20 +9,42 @@ const mainColor = "#F0602A";
 const StoreList = () => {
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(12);
+  const [pageInfo, setPageInfo] = useState({ totalPages: 0, totalElements: 0 });
   const location = useLocation();
   const navigate = useNavigate();
+  const prevSearchRef = useRef(location.search);
 
   // 현재 검색 조건을 텍스트로 추출 (UI 표시용)
   const queryParams = new URLSearchParams(location.search);
   const keyword = queryParams.get('keyword') || queryParams.get('category') || "전체";
 
   useEffect(() => {
+    const searchChanged = prevSearchRef.current !== location.search;
+    if (searchChanged) {
+      prevSearchRef.current = location.search;
+      if (page !== 0) {
+        setPage(0);
+        return;
+      }
+    }
+
     setLoading(true);
-    api.get(`/stores`, { params: Object.fromEntries(queryParams) })
-      .then(res => setStores(res.data))
+    const params = { ...Object.fromEntries(new URLSearchParams(location.search)), page, size };
+    api.get('/stores', { params })
+      .then(res => {
+        setStores(res.data.content);
+        setPageInfo({ totalPages: res.data.totalPages, totalElements: res.data.totalElements });
+      })
       .catch(err => console.error("목록 로드 실패", err))
       .finally(() => setLoading(false));
-  }, [location.search]);
+  }, [location.search, page, size]);
+
+  const handleSizeChange = (newSize) => {
+    setSize(newSize);
+    setPage(0);
+  };
 
   return (
     <div style={pageBackground}>
@@ -38,11 +60,22 @@ const StoreList = () => {
           <div style={titleWrapper}>
             <h2 style={webTitle}>
               <span style={{ color: mainColor }}>'{keyword}'</span> 검색 결과
-              <span style={countBadge}>{stores.length}</span>
+              <span style={countBadge}>{pageInfo.totalElements}</span>
             </h2>
-            <button style={resetBtn} onClick={() => navigate('/stores')}>
-              <RefreshCcw size={16} style={{marginRight: '6px'}} /> 초기화
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <select
+                value={size}
+                onChange={e => handleSizeChange(Number(e.target.value))}
+                style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '0.9rem', color: '#555' }}
+              >
+                <option value={12}>12건</option>
+                <option value={48}>48건</option>
+                <option value={96}>96건</option>
+              </select>
+              <button style={resetBtn} onClick={() => navigate('/stores')}>
+                <RefreshCcw size={16} style={{marginRight: '6px'}} /> 초기화
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -87,11 +120,48 @@ const StoreList = () => {
           ) : (
             <>
               {stores.length > 0 ? (
-                <div style={webStoreGrid}>
-                  {stores.map(store => (
-                    <StoreCard key={store.id} store={store} navigate={navigate} />
-                  ))}
-                </div>
+                <>
+                  <div style={webStoreGrid}>
+                    {stores.map(store => (
+                      <StoreCard key={store.id} store={store} navigate={navigate} />
+                    ))}
+                  </div>
+                  {pageInfo.totalPages > 1 && (() => {
+                    const blockSize = 10;
+                    const startPage = Math.floor(page / blockSize) * blockSize;
+                    const endPage = Math.min(startPage + blockSize, pageInfo.totalPages);
+                    const isFirst = page === 0;
+                    const isLast = page >= pageInfo.totalPages - 1;
+                    const navBtn = (disabled) => ({
+                      padding: '8px 14px', border: '1px solid #ddd', borderRadius: '8px',
+                      cursor: disabled ? 'not-allowed' : 'pointer', background: '#fff',
+                      color: disabled ? '#ccc' : '#555', fontSize: '0.9rem',
+                    });
+                    return (
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '40px' }}>
+                        <button onClick={() => setPage(0)} disabled={isFirst} style={navBtn(isFirst)}>처음</button>
+                        <button onClick={() => setPage(p => Math.max(0, p - 10))} disabled={isFirst} style={navBtn(isFirst)}>이전</button>
+                        {Array.from({ length: endPage - startPage }, (_, i) => startPage + i).map(i => (
+                          <button
+                            key={i}
+                            onClick={() => setPage(i)}
+                            style={{
+                              padding: '8px 14px',
+                              background: page === i ? mainColor : '#fff',
+                              color: page === i ? '#fff' : '#555',
+                              border: '1px solid #ddd', borderRadius: '8px', cursor: 'pointer',
+                              fontWeight: page === i ? 'bold' : 'normal', fontSize: '0.9rem',
+                            }}
+                          >
+                            {i + 1}
+                          </button>
+                        ))}
+                        <button onClick={() => setPage(p => Math.min(pageInfo.totalPages - 1, p + 10))} disabled={isLast} style={navBtn(isLast)}>다음</button>
+                        <button onClick={() => setPage(pageInfo.totalPages - 1)} disabled={isLast} style={navBtn(isLast)}>끝</button>
+                      </div>
+                    );
+                  })()}
+                </>
               ) : (
                 <div style={webEmptyWrapper}>
                   <div style={emptyIcon}>🔎</div>

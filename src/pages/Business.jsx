@@ -13,7 +13,11 @@ const Business = () => {
   const accessDashboard = isAdmin || isOwner;
 
   const [stores, setStores] = useState([]);
+  const [totalStores, setTotalStores] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(0);
 
   const categoryMap = {
     "KOREAN": "한식", "SNACK": "분식", "CHICKEN": "치킨",
@@ -22,17 +26,31 @@ const Business = () => {
   };
 
   useEffect(() => {
-    if (accessDashboard) fetchStores();
+    if (accessDashboard) fetchStores(0);
     else setLoading(false);
   }, [accessDashboard]);
 
-  const fetchStores = async () => {
+  useEffect(() => {
+    if (accessDashboard) fetchStores(page);
+  }, [page]);
+
+  const handleSizeChange = (newSize) => {
+    setSize(newSize);
+    setPage(0);
+    fetchStores(0, newSize);
+  };
+
+  const fetchStores = async (currentPage, currentSize = size) => {
     try {
-      const res = await api.get("/owners/stores");
-      setStores(Array.isArray(res.data) ? res.data : []);
+      const res = await api.get("/owners/stores", { params: { page: currentPage, size: currentSize } });
+      setStores(res.data.content || []);
+      setTotalStores(res.data.totalElements || 0);
+      setTotalPages(res.data.totalPages || 0);
     } catch (err) {
       console.error("데이터 로드 실패:", err);
       setStores([]);
+      setTotalStores(0);
+      setTotalPages(0);
     } finally {
       setLoading(false);
     }
@@ -75,16 +93,27 @@ const Business = () => {
                   <h1 style={titleStyle}>Owner Dashboard</h1>
                   <p style={subTitle}>등록된 매장의 상세 정보와 운영 현황을 관리하세요.</p>
                 </div>
-                <button onClick={() => navigate("/business/new-store")} style={headerAddBtn(mainColor)}>
-                  <PlusCircle size={18} /> 신규 매장 등록
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <select
+                    value={size}
+                    onChange={e => handleSizeChange(Number(e.target.value))}
+                    style={{ padding: '10px 14px', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: '13px', color: '#475569', fontWeight: '600' }}
+                  >
+                    <option value={10}>10건</option>
+                    <option value={50}>50건</option>
+                    <option value={100}>100건</option>
+                  </select>
+                  <button onClick={() => navigate("/business/new-store")} style={headerAddBtn(mainColor)}>
+                    <PlusCircle size={18} /> 신규 매장 등록
+                  </button>
+                </div>
               </header>
 
               {/* 요약 통계 */}
               <div style={summaryRow}>
                 <div style={summaryCard}>
                   <span style={summaryLabel}>총 관리 매장</span>
-                  <strong style={summaryValue}>{stores.length}<span style={{fontSize: '16px', marginLeft: '4px'}}>개</span></strong>
+                  <strong style={summaryValue}>{totalStores}<span style={{fontSize: '16px', marginLeft: '4px'}}>개</span></strong>
                 </div>
               </div>
 
@@ -184,6 +213,29 @@ const Business = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* 페이지네이션 */}
+              {totalPages > 0 && (() => {
+                const blockSize = 10;
+                const startPage = Math.floor(page / blockSize) * blockSize;
+                const endPage = Math.min(startPage + blockSize, totalPages);
+                const isFirst = page === 0;
+                const isLast = page >= totalPages - 1;
+                const navBtn = (disabled) => ({ padding: '6px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: disabled ? 'not-allowed' : 'pointer', background: '#fff', color: disabled ? '#cbd5e1' : '#475569', fontSize: '13px', fontWeight: '600' });
+                return (
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '24px' }}>
+                    <button onClick={() => setPage(0)} disabled={isFirst} style={navBtn(isFirst)}>처음</button>
+                    <button onClick={() => setPage(p => Math.max(0, p - 10))} disabled={isFirst} style={navBtn(isFirst)}>이전</button>
+                    {Array.from({ length: endPage - startPage }, (_, i) => startPage + i).map(i => (
+                      <button key={i} onClick={() => setPage(i)} style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'pointer', fontSize: '13px', fontWeight: page === i ? '800' : '600', background: page === i ? mainColor : '#fff', color: page === i ? '#fff' : '#475569' }}>
+                        {i + 1}
+                      </button>
+                    ))}
+                    <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 10))} disabled={isLast} style={navBtn(isLast)}>다음</button>
+                    <button onClick={() => setPage(totalPages - 1)} disabled={isLast} style={navBtn(isLast)}>끝</button>
+                  </div>
+                );
+              })()}
             </>
           ) : (
             /* 일반 유저용 화면 */

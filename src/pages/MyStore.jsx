@@ -28,9 +28,9 @@ const MyStore = () => {
 
   // 매장 목록 로드
   useEffect(() => {
-    api.get(`/owners/stores`)
+    api.get(`/owners/stores`, { params: { page: 0, size: 100 } })
       .then(res => {
-        const data = res.data || [];
+        const data = res.data.content || [];
         setStores(data);
 
         if (data.length > 0) {

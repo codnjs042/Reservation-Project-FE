@@ -50,7 +50,7 @@ function App() {
               <Route path="new-store/tables" element={<StoreTableRegistration />} />
             </Route>
 
-            <Route path="/admin"element={<ProtectedRoute requiredRole="ROLE_ADMIN" />}>
+            <Route path="/admin" element={<ProtectedRoute requiredRole="ROLE_ADMIN" />}>
                 <Route index element={<UserAdmin />} />
                 <Route path="stores" element={<StoreAdmin />} />
                 <Route path="reservations" element={<ReservationAdmin />} />

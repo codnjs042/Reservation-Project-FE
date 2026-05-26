@@ -9,6 +9,9 @@ const ReservationTab = ({ storeId, onPolicyViolation }) => {
   const [selectedIds, setSelectedIds] = useState([]);
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
   const [filter, setFilter] = useState({ type: 'name', keyword: '', startDate: '', endDate: '', status: [] });
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(10);
+  const [pageInfo, setPageInfo] = useState({ totalPages: 0, totalElements: 0 });
 
   const statusMap = {
     'CONFIRMED': { label: '확정', color: '#52c41a', bg: '#f6ffed' },
@@ -20,17 +23,21 @@ const ReservationTab = ({ storeId, onPolicyViolation }) => {
   };
 
   // ◀ 첫 진입시 실행되는 GET 요청부 수정
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (currentPage = page) => {
     if (!storeId) return;
     const params = {
       ...(filter.keyword.trim() && { type: filter.type, keyword: filter.keyword.trim() }),
       ...(filter.startDate && { startDate: filter.startDate }),
       ...(filter.endDate && { endDate: filter.endDate }),
-      ...(filter.status.length > 0 && { status: filter.status.join(',') })
+      ...(filter.status.length > 0 && { status: filter.status.join(',') }),
+      page: currentPage,
+      size
     };
     try {
       const res = await api.get(`/owners/stores/${storeId}/reservations`, { params });
-      setReservations(Array.isArray(res.data) ? res.data : (res.data.content || []));
+      const content = res.data.content || [];
+      setReservations(content);
+      setPageInfo({ totalPages: res.data.totalPages, totalElements: res.data.totalElements });
     } catch (err) {
       setReservations([]);
 
@@ -54,9 +61,21 @@ const ReservationTab = ({ storeId, onPolicyViolation }) => {
         }
       }
     }
-  }, [storeId, filter, onPolicyViolation]);
+  }, [storeId, filter, onPolicyViolation, size]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(page); }, [page]);
+  useEffect(() => { fetchData(0); }, [fetchData]);
+
+  const handleSizeChange = (newSize) => {
+    setSize(newSize);
+    setPage(0);
+  };
+
+  const handleSearch = () => {
+    setPage(0);
+    fetchData(0);
+    setSelectedIds([]);
+  };
 
   const handleStatusChange = async (status) => {
     const result = await Swal.fire({
@@ -103,13 +122,22 @@ const ReservationTab = ({ storeId, onPolicyViolation }) => {
     <div style={dashboardWrapper}>
       <div style={titleArea}>
         <h2 style={pageTitle}>예약 내역 관리</h2>
-        <span style={totalCount}>검색 결과 {reservations.length}건</span>
+        <span style={totalCount}>검색 결과 {pageInfo.totalElements}건</span>
+        <select
+          value={size}
+          onChange={e => handleSizeChange(Number(e.target.value))}
+          style={{ marginLeft: 'auto', padding: '8px 12px', border: '1px solid #eee', borderRadius: '8px', fontSize: '13px', color: '#555' }}
+        >
+          <option value={10}>10건</option>
+          <option value={50}>50건</option>
+          <option value={100}>100건</option>
+        </select>
       </div>
 
       <ReservationFilter
         filter={filter} setFilter={setFilter}
         isExpanded={isFilterExpanded} setIsExpanded={setIsFilterExpanded}
-        onSearch={fetchData} statusMap={statusMap}
+        onSearch={handleSearch} statusMap={statusMap}
       />
 
       {selectedIds.length > 0 && (
@@ -129,7 +157,7 @@ const ReservationTab = ({ storeId, onPolicyViolation }) => {
         <table style={adminTable}>
           <thead>
             <tr>
-              <th style={thStyle}><input type="checkbox" onChange={e => setSelectedIds(e.target.checked ? reservations.map(r => r.id) : [])} checked={selectedIds.length > 0 && selectedIds.length === reservations.length} /></th>
+              <th style={thStyle}><input type="checkbox" onChange={e => setSelectedIds(e.target.checked ? reservations.map(r => r.id) : [])} checked={reservations.length > 0 && selectedIds.length === reservations.length} /></th>
               <th style={thStyle}>No.</th>
               <th style={thStyle}>예약자</th>
               <th style={thStyle}>인원</th>
@@ -155,6 +183,29 @@ const ReservationTab = ({ storeId, onPolicyViolation }) => {
           </tbody>
         </table>
       </div>
+
+      {/* 페이지네이션 */}
+      {pageInfo.totalPages > 0 && (() => {
+        const blockSize = 10;
+        const startPage = Math.floor(page / blockSize) * blockSize;
+        const endPage = Math.min(startPage + blockSize, pageInfo.totalPages);
+        const isFirst = page === 0;
+        const isLast = page >= pageInfo.totalPages - 1;
+        const navBtn = (disabled) => ({ padding: '6px 12px', border: '1px solid #eee', borderRadius: '8px', cursor: disabled ? 'not-allowed' : 'pointer', background: '#fff', color: disabled ? '#ccc' : '#555', fontSize: '13px' });
+        return (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '16px' }}>
+            <button onClick={() => setPage(0)} disabled={isFirst} style={navBtn(isFirst)}>처음</button>
+            <button onClick={() => setPage(p => Math.max(0, p - 10))} disabled={isFirst} style={navBtn(isFirst)}>이전</button>
+            {Array.from({ length: endPage - startPage }, (_, i) => startPage + i).map(i => (
+              <button key={i} onClick={() => setPage(i)} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #eee', cursor: 'pointer', fontSize: '13px', background: page === i ? '#F0602A' : '#fff', color: page === i ? '#fff' : '#555', fontWeight: page === i ? 'bold' : 'normal' }}>
+                {i + 1}
+              </button>
+            ))}
+            <button onClick={() => setPage(p => Math.min(pageInfo.totalPages - 1, p + 10))} disabled={isLast} style={navBtn(isLast)}>다음</button>
+            <button onClick={() => setPage(pageInfo.totalPages - 1)} disabled={isLast} style={navBtn(isLast)}>끝</button>
+          </div>
+        );
+      })()}
     </div>
   );
 };
