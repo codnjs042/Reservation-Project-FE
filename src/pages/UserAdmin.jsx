@@ -77,6 +77,29 @@ function UserAdmin() {
     fetchUsers(0, newSize);
   };
 
+  const handleBan = async () => {
+    const result = await Swal.fire({
+      title: '유저 영구 정지',
+      html: `<b>${selectedUser.username}</b>님을 영구 정지하시겠습니까?<br/><span style="color:#888;font-size:13px">가게, 예약, 즐겨찾기 데이터가 모두 정리됩니다.</span>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d32f2f',
+      confirmButtonText: '영구 정지',
+      cancelButtonText: '취소',
+    });
+    if (!result.isConfirmed) return;
+
+    api.delete(`/admin/users/${selectedUser.id}`)
+      .then(() => {
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: '영구 정지 완료', showConfirmButton: false, timer: 2000, timerProgressBar: true });
+        setSelectedUser(null);
+        fetchUsers(page, size);
+      })
+      .catch(err => {
+        console.error("영구 정지 실패:", err);
+      });
+  };
+
   const tabStyle = (path) => ({
     padding: '15px 25px', cursor: 'pointer',
     borderBottom: window.location.pathname === path ? '3px solid #673ab7' : '3px solid transparent',
@@ -262,6 +285,20 @@ function UserAdmin() {
                     ))}
                   </tbody>
                 </table>
+                {selectedUser.status === 'ACTIVE' && (
+                  <div style={{ marginTop: '24px', textAlign: 'right' }}>
+                    <button
+                      onClick={handleBan}
+                      style={{
+                        padding: '10px 22px', background: '#d32f2f', color: '#fff',
+                        border: 'none', borderRadius: '6px', fontWeight: 'bold',
+                        cursor: 'pointer', fontSize: '14px'
+                      }}
+                    >
+                      영구 정지
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </div>
