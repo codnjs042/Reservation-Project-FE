@@ -3,7 +3,7 @@ import Swal from 'sweetalert2';
 import { jwtDecode } from 'jwt-decode';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8081',
+  baseURL: import.meta.env.VITE_API_BASE_URL,
   withCredentials: true,
 });
 
@@ -43,7 +43,7 @@ api.interceptors.response.use(
       // 토큰 갱신 시도
       originalRequest._retry = true;
       try {
-        const res = await axios.post('http://localhost:8081/auth/refresh', null, { withCredentials: true });
+        const res = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/auth/refresh`, null, { withCredentials: true });
         const accessToken = res.data.accessToken;
         const decoded = jwtDecode(accessToken);
 
