@@ -26,3 +26,9 @@ dist-ssr
 
 # 보안 파일
 .env
+
+### claude ###
+.claude
+research.md
+CLAUDE.md
+plan.md
