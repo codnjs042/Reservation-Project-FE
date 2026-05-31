@@ -35,7 +35,7 @@ const Login = () => {
     const top = window.screen.height / 2 - height / 2;
 
     window.open(
-      `http://localhost:8081/oauth2/authorization/${provider}`,
+      `${import.meta.env.VITE_OAUTH2_BASE_URL}/${provider}`,
       `${provider}LoginPopup`,
       `width=${width},height=${height},top=${top},left=${left},scrollbars=yes,resizable=yes`
     );
