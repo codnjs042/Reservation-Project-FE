@@ -16,8 +16,6 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_KEY }}
           script: |
-            sudo kill -9 $(sudo lsof -t -i :5173) || true
             cd Reservation-Project-FE
             git pull origin main
             npm run build
-            nohup serve -s dist -l 5173 > front.log 2>&1 &
