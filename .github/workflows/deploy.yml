@@ -1,0 +1,23 @@
+name: Frontend Deploy
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            sudo kill -9 $(sudo lsof -t -i :5173) || true
+            cd Reservation-Project-FE
+            git pull origin main
+            npm run build
+            nohup serve -s dist -l 5173 > front.log 2>&1 &
