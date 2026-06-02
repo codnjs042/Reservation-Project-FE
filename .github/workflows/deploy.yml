@@ -3,6 +3,9 @@ name: Frontend Deploy
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'build.gradle'
 
 jobs:
   deploy:
