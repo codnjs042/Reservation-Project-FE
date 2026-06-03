@@ -6,6 +6,7 @@ on:
     paths:
       - 'src/**'
       - 'build.gradle'
+      - '.github/workflows/deploy.yml'
 
 jobs:
   deploy:
