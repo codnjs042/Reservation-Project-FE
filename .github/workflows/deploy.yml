@@ -22,4 +22,5 @@ jobs:
           script: |
             cd Reservation-Project-FE
             git pull origin main
-            npm run build
+            cd ../Reservation-Project-BE
+            docker compose restart nginx
